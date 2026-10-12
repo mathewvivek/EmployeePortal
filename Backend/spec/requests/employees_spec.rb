@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "Employee directory API", type: :request do
+RSpec.describe "Employee directory API", type: :request, authenticated: true do
   before do
     create_employee(employee_id: "EMP001", name: "Alice Morgan", base_salary: "60000.50")
     create_employee(employee_id: "EMP002", name: "Bob Chen", country: "United States",

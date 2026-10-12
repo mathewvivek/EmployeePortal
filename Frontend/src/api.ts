@@ -13,8 +13,14 @@ export interface Employee {
 
 export type EmployeeInput = Omit<Employee, 'id'>;
 
+export interface AuthUser { id: number; email: string; name: string; role: 'superadmin' }
+export interface AuthSession { user: AuthUser; token: string; expires_at: string }
+
+let authToken: string | undefined;
+export function setAuthToken(token?: string) { authToken = token; }
+
 export class ApiError extends Error {
-  constructor(message: string, public fieldErrors: Record<string, string[]> = {}) {
+  constructor(message: string, public fieldErrors: Record<string, string[]> = {}, public status = 0) {
     super(message);
     this.name = 'ApiError';
   }
@@ -59,8 +65,16 @@ type Query = Record<string, string | number | undefined>;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const apiBaseUrl = (API_BASE_URL?.trim() || '/api/v1').replace(/\/+$/, '');
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, options);
+async function request<T>(path: string, options?: RequestInit, authenticated = true): Promise<T> {
+  const token = authenticated ? authToken : undefined;
+  const headers = new Headers(options?.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
+  if (response.status === 401 && token && token === authToken) {
+    authToken = undefined;
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('portal:session-expired'));
+  }
+  if (response.status === 204) return undefined as T;
   const text = await response.text();
   let body;
   try { body = JSON.parse(text); } catch {
@@ -72,7 +86,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       : errors && typeof errors === 'object'
         ? Object.entries(errors).map(([field, values]) => `${field.replaceAll('_', ' ')} ${Array.isArray(values) ? values.join(', ') : values}`).join('; ')
         : 'The request could not be completed.';
-    throw new ApiError(message, errors && !Array.isArray(errors) && typeof errors === 'object' ? errors : {});
+    throw new ApiError(message, errors && !Array.isArray(errors) && typeof errors === 'object' ? errors : {}, response.status);
   }
   return body as T;
 }
@@ -86,6 +100,11 @@ function queryString(params: Query): string {
 }
 
 export const api = {
+  login: (email: string, password: string) => request<{ data: AuthSession }>('/session', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session: { email, password } }),
+  }, false),
+  session: (signal?: AbortSignal) => request<{ data: Omit<AuthSession, 'token'> }>('/session', { signal }),
+  logout: () => request<void>('/session', { method: 'DELETE' }),
   createEmployee: (employee: EmployeeInput) => request<{ data: Employee }>('/employees', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee }),
   }),

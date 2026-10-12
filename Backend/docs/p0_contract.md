@@ -25,6 +25,14 @@ preserve previous history records.
 
 ## Directory API
 
+All employee, salary, history and compensation endpoints require an active HR
+superadmin session. Login through `POST /api/v1/session` with an `email` and
+`password` in a `session` object; send the returned opaque token in
+`Authorization: Bearer <token>`. Invalid credentials and missing/expired/revoked
+tokens return JSON `401` errors. Sessions expire after eight hours and can be
+revoked by `DELETE /api/v1/session`. Health checks remain public. Login responses
+do not expose password digests, and protected responses use `Cache-Control: no-store`.
+
 `GET /api/v1/employees` returns `{ data: [...], meta: {...} }`.
 Each record contains employee details and current salary details.
 `GET /api/v1/employees/:id` looks up the database primary key.

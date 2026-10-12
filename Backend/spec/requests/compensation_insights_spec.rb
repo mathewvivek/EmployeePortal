@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "Compensation insights API", type: :request do
+RSpec.describe "Compensation insights API", type: :request, authenticated: true do
   before do
     create_employee(employee_id: "EMP001", base_salary: "100", department: "Engineering")
     create_employee(employee_id: "EMP002", base_salary: "300", department: "Finance", status: "inactive")

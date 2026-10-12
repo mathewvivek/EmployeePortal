@@ -1,3 +1,8 @@
+if Rails.env.development? || ENV["SEED_HR_USER"] == "true"
+  HrUserSeed.load!
+  puts "HR login account is ready."
+end
+
 if Rails.env.development? && ENV["SEED_DEMO_EMPLOYEES"] == "true"
   names = [
     "Dianne Russell", "Jane Cooper", "Kristin Watson", "Marvin McKinney",

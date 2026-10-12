@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "API CORS policy", type: :request do
+RSpec.describe "API CORS policy", type: :request, authenticated: true do
   let(:origin) { "https://employee-portal-frontend-1hdp.onrender.com" }
 
   it "allows API reads from the deployed frontend without enabling cookie credentials" do

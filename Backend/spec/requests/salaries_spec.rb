@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "Employee salary API", type: :request do
+RSpec.describe "Employee salary API", type: :request, authenticated: true do
   let!(:employee) { create_employee }
   let(:salary_change_class) { require_feature!("SalaryChange") }
   let(:salary_path) { "/api/v1/employees/#{employee.id}/salary" }

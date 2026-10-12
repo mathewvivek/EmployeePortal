@@ -2,7 +2,17 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { Employee, EmployeeInput, SalaryChange } from '../src/api';
 
-async function workspace(page: Page) {
+async function workspace(page: Page, signedIn = true) {
+  const user = { id: 1, email: 'hr@employeeportal.test', name: 'HR Administrator', role: 'superadmin' };
+  const token = 'ab'.repeat(32);
+  const session = { user, token, expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() };
+  let validSession = true;
+  let failVerification = false;
+  const logins: { email: string; password: string }[] = [];
+  if (signedIn) await page.addInitScript((value) => {
+    sessionStorage.setItem('portal-session', JSON.stringify(value));
+    localStorage.setItem('portal-view', 'employees');
+  }, session);
   const names = ['Dianne Russell', 'Jane Cooper', 'Kristin Watson', 'Marvin McKinney', 'Eleanor Pena', 'Priya Sharma', 'Charles Zhao', 'Devon Lane', 'Alice Morgan', 'Bob Chen', 'Carla Jones', 'David Singh'];
   const records: Employee[] = names.map((name, index) => ({
     id: index + 1, employee_id: `EMP${2001 + index}`, name,
@@ -30,6 +40,26 @@ async function workspace(page: Page) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (url.pathname === '/api/v1/session') {
+      if (request.method() === 'POST') {
+        const credentials = request.postDataJSON().session;
+        logins.push(credentials);
+        if (credentials.email !== user.email || credentials.password !== 'HrDemo!2026Access') {
+          return route.fulfill({ status: 401, json: { errors: ['Email or password is incorrect'] } });
+        }
+        validSession = true;
+        return route.fulfill({ status: 201, json: { data: session } });
+      }
+      if (!validSession || request.headers().authorization !== `Bearer ${token}`) {
+        return route.fulfill({ status: 401, json: { errors: ['Please sign in to continue'] } });
+      }
+      if (request.method() === 'GET' && failVerification) return route.fulfill({ status: 503, json: { errors: ['Sign-in verification unavailable'] } });
+      if (request.method() === 'DELETE') { validSession = false; return route.fulfill({ status: 204, body: '' }); }
+      return route.fulfill({ json: { data: { user, expires_at: session.expires_at } } });
+    }
+    if (!validSession || request.headers().authorization !== `Bearer ${token}`) {
+      return route.fulfill({ status: 401, json: { errors: ['Please sign in to continue'] } });
+    }
     if (url.pathname.endsWith('/compensation_insights')) return route.fulfill({ json: { data: summary } });
     if (url.pathname.endsWith('/salary_history')) return route.fulfill({ json: { data: changes } });
     if (request.method() === 'POST' && url.pathname === '/api/v1/employees') {
@@ -69,7 +99,8 @@ async function workspace(page: Page) {
     return route.fulfill({ json: { data: results.slice((current - 1) * size, current * size),
       meta: { page: current, per_page: size, total_count: results.length, total_pages: Math.ceil(results.length / size) } } });
   });
-  return { updates, creations, queries, setFailure: (value: boolean) => { fail = value; } };
+  return { updates, creations, queries, logins, expireSession: () => { validSession = false; },
+    setVerificationFailure: (value: boolean) => { failVerification = value; }, setFailure: (value: boolean) => { fail = value; } };
 }
 
 async function navigate(page: Page, label: string) {
@@ -257,4 +288,80 @@ test('duplicate ID errors preserve the form and allow a corrected submission', a
   await dialog.getByRole('button', { name: 'Add employee', exact: true }).click();
   await expect(page.getByText('Nora Patel added successfully')).toBeVisible();
   expect(state.creations).toHaveLength(2);
+});
+
+test('signed-out visitors see the login screen without fetching employee data', async ({ page }, info) => {
+  const state = await workspace(page, false);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible();
+  await expect(page.locator('.workspace')).toHaveCount(0);
+  expect(state.queries).toHaveLength(0);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  expect(state.logins).toHaveLength(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('login.png'), fullPage: true });
+});
+
+test('HR login reports invalid credentials then opens the dashboard with an authenticated session', async ({ page }) => {
+  const state = await workspace(page, false);
+  await page.goto('/');
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('hr@employeeportal.test');
+  await page.getByLabel('Password', { exact: true }).fill('wrong password');
+  await page.getByRole('button', { name: 'Show password', exact: true }).click();
+  await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'text');
+  await page.getByRole('button', { name: 'Hide password', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Email or password is incorrect');
+  await page.getByLabel('Password', { exact: true }).fill('HrDemo!2026Access');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.locator('.page-heading h1')).toHaveText('Overview');
+  await expect(page.locator('.metric').first()).toContainText('12');
+  await expect(page.locator('.profile')).toContainText('HR Administrator');
+  expect(state.logins).toHaveLength(2);
+  await navigate(page, 'Employees');
+  await expect(page.locator('tbody tr')).toHaveCount(8);
+  await page.reload();
+  await expect(page.locator('tbody tr')).toHaveCount(8);
+  expect(await page.evaluate(() => localStorage.getItem('portal-session'))).toBeNull();
+});
+
+test('signing out revokes the session and hides cached employee data', async ({ page }) => {
+  await workspace(page, false);
+  await page.goto('/');
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('hr@employeeportal.test');
+  await page.getByLabel('Password', { exact: true }).fill('HrDemo!2026Access');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.locator('.metric').first()).toContainText('12');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(page.getByText('You have signed out.')).toBeVisible();
+  await expect(page.locator('.workspace')).toHaveCount(0);
+  expect(await page.evaluate(() => sessionStorage.getItem('portal-session'))).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+});
+
+test('an expired server session returns to sign-in and clears cached credentials', async ({ page }) => {
+  const state = await workspace(page);
+  await page.goto('/');
+  await expect(page.locator('tbody tr')).toHaveCount(8);
+  state.expireSession();
+  await page.getByRole('button', { name: 'Refresh workspace', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('session has expired');
+  await expect(page.locator('tbody')).toHaveCount(0);
+  expect(await page.evaluate(() => sessionStorage.getItem('portal-session'))).toBeNull();
+});
+
+test('restored sessions do not expose the workspace until server verification succeeds', async ({ page }) => {
+  const state = await workspace(page);
+  state.setVerificationFailure(true);
+  await page.goto('/');
+  await expect(page.getByRole('alert')).toContainText('Sign-in verification unavailable');
+  await expect(page.locator('.workspace')).toHaveCount(0);
+  expect(state.queries).toHaveLength(0);
+  state.setVerificationFailure(false);
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(8);
 });

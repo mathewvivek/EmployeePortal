@@ -4,7 +4,7 @@ import type { RollupOutput } from 'rollup';
 import type { api as apiClient } from '../src/api';
 import { fileURLToPath } from 'node:url';
 
-async function loadApi(baseUrl?: string): Promise<typeof apiClient> {
+async function loadApi(baseUrl?: string): Promise<{ api: typeof apiClient; setAuthToken: (token?: string) => void }> {
   const result = await build({
     configFile: false,
     logLevel: 'silent',
@@ -19,15 +19,17 @@ async function loadApi(baseUrl?: string): Promise<typeof apiClient> {
   const chunk = output.find((item) => item.type === 'chunk');
   if (!chunk || chunk.type !== 'chunk') throw new Error('API build did not produce JavaScript');
   const module = await import(`data:text/javascript;base64,${Buffer.from(chunk.code).toString('base64')}`);
-  return module.api;
+  return module;
 }
 
-async function requests(baseUrl: string | undefined, run: (api: typeof apiClient) => Promise<void>) {
-  const api = await loadApi(baseUrl);
+async function requests(baseUrl: string | undefined, run: (api: typeof apiClient) => Promise<void>, token?: string) {
+  const { api, setAuthToken } = await loadApi(baseUrl);
+  setAuthToken(token);
   const calls: { url: string; options?: RequestInit }[] = [];
   const original = globalThis.fetch;
   globalThis.fetch = async (input, options) => {
     calls.push({ url: String(input), options });
+    if (options?.method === 'DELETE') return new Response(null, { status: 204 });
     return new Response(JSON.stringify({ data: [], meta: {} }), { headers: { 'Content-Type': 'application/json' } });
   };
   try { await run(api); } finally { globalThis.fetch = original; }
@@ -61,4 +63,17 @@ test('all API operations use the configured prefix without duplicate slashes', a
   expect(JSON.parse(calls[3].options?.body as string).employee.employee_id).toBe('EMP_NEW');
   expect(calls[4].options?.method).toBe('PATCH');
   expect(JSON.parse(calls[4].options?.body as string).salary.confirmed).toBe(true);
+});
+
+test('authenticated requests carry bearer tokens but login never sends an old token', async () => {
+  const calls = await requests('https://api.example.invalid/api/v1', async (api) => {
+    await api.login('hr@example.com', 'ExampleHR!2026Access');
+    await api.session();
+    await api.employees({});
+    await api.logout();
+  }, 'test-token');
+  expect(new Headers(calls[0].options?.headers).get('Authorization')).toBeNull();
+  expect(JSON.parse(calls[0].options?.body as string).session.email).toBe('hr@example.com');
+  for (const call of calls.slice(1)) expect(new Headers(call.options?.headers).get('Authorization')).toBe('Bearer test-token');
+  expect(calls[3].options?.method).toBe('DELETE');
 });

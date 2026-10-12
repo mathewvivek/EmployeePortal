@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, History, LayoutDashboard, Menu, Moon, RefreshCw, Search, Settings2, Sun, UsersRound, Wallet, X } from 'lucide-react';
+import { CheckCircle2, ChevronRight, History, LayoutDashboard, LogOut, Menu, Moon, RefreshCw, Search, Settings2, Sun, UsersRound, Wallet, X } from 'lucide-react';
 import { api, currencies, emptyFilters } from './api';
-import type { Employee } from './api';
+import type { AuthUser, Employee } from './api';
+import AuthGate from './AuthGate';
 import DirectoryView from './DirectoryView';
 import HistoryView from './HistoryView';
 import InsightsView from './InsightsView';
@@ -23,7 +24,14 @@ function readPreference(key: string, fallback: string) {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>('employees');
+  return <AuthGate>{(user, logout) => <Workspace key={user.id} user={user} logout={logout} />}</AuthGate>;
+}
+
+function Workspace({ user, logout }: { user: AuthUser; logout: () => Promise<void> }) {
+  const [view, setView] = useState<View>(() => {
+    const saved = readPreference('portal-view', 'overview');
+    return navigation.some((item) => item.key === saved) ? saved as View : 'overview';
+  });
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState(emptyFilters);
@@ -42,9 +50,12 @@ export default function App() {
   });
   const [currency, setCurrency] = useState(() => readPreference('portal-currency', 'USD'));
   const [notice, setNotice] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const options = useResource((signal) => api.insights({}, signal), [revision]);
 
   useEffect(() => { const timeout = setTimeout(() => setSearch(query.trim()), 300); return () => clearTimeout(timeout); }, [query]);
+  useEffect(() => { try { localStorage.setItem('portal-view', view); } catch { /* Navigation preferences are optional. */ } }, [view]);
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const update = () => document.documentElement.setAttribute('data-theme', theme === 'system' ? (media.matches ? 'dark' : 'light') : theme);
@@ -56,6 +67,12 @@ export default function App() {
 
   const navigate = (next: View) => { setView(next); setMobileMenu(false); };
   const title = navigation.find((item) => item.key === view)?.label || 'Employees';
+  const signOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true); setLogoutError('');
+    try { await logout(); } catch (failure) { setLogoutError((failure as Error).message); }
+    finally { setSigningOut(false); }
+  };
 
   return <div className="app-shell">
     {mobileMenu && <button className="mobile-shade" aria-label="Close navigation" onClick={() => setMobileMenu(false)} />}
@@ -63,10 +80,11 @@ export default function App() {
       <button className="brand" onClick={() => navigate('overview')}><span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span><span><strong>Employee Portal</strong><small>People & compensation</small></span></button>
       <div className="workspace-label">WORKSPACE</div>
       <nav className="main-navigation">{navigation.map(({ key, label, icon: Icon }) => <button key={key} className={view === key ? 'active' : ''} aria-current={view === key ? 'page' : undefined} onClick={() => navigate(key)}><span className="nav-icon"><Icon size={19} /></span>{label}{view === key && <span className="nav-active-dot" />}</button>)}</nav>
-      <div className="sidebar-bottom"><button className="settings-link" onClick={() => { setSettings(true); setMobileMenu(false); }}><Settings2 size={20} />Settings</button><div className="workspace-status"><span className={options.error ? 'offline-dot' : 'online-dot'} /><span>{options.error ? 'Workspace unavailable' : 'People workspace'}</span></div></div>
+      <div className="sidebar-bottom"><button className="settings-link" onClick={() => { setSettings(true); setMobileMenu(false); }}><Settings2 size={20} />Settings</button><button className="settings-link" onClick={() => void signOut()} disabled={signingOut}><LogOut size={20} />{signingOut ? 'Signing out...' : 'Sign out'}</button><div className="workspace-status"><span className={options.error ? 'offline-dot' : 'online-dot'} /><span>{options.error ? 'Workspace unavailable' : 'People workspace'}</span></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><button className="icon-button mobile-menu-button" aria-label="Open navigation" title="Navigation" onClick={() => setMobileMenu(true)}><Menu size={22} /></button><label className="search-field global-search"><Search size={20} /><input aria-label="Search employees" placeholder="Search employees..." value={query} onChange={(event) => { setQuery(event.target.value); if (view !== 'employees') setView('employees'); }} />{query && <button className="search-clear" title="Clear search" aria-label="Clear search" onClick={() => setQuery('')}><X size={15} /></button>}</label><div className="header-actions"><button className="icon-button round-button" title="Refresh workspace" aria-label="Refresh workspace" onClick={() => setRevision((value) => value + 1)}><RefreshCw size={18} className={options.loading ? 'spin' : ''} /></button><button className="icon-button round-button theme-toggle" title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><button className="profile" onClick={() => setSettings(true)} aria-label="Workspace settings"><img src="/hr-avatar.jpg" width="40" height="40" alt="" /><span><strong>People team</strong><small>HR workspace</small></span></button></div></header>
+      <header className="topbar"><button className="icon-button mobile-menu-button" aria-label="Open navigation" title="Navigation" onClick={() => setMobileMenu(true)}><Menu size={22} /></button><label className="search-field global-search"><Search size={20} /><input aria-label="Search employees" placeholder="Search employees..." value={query} onChange={(event) => { setQuery(event.target.value); if (view !== 'employees') setView('employees'); }} />{query && <button className="search-clear" title="Clear search" aria-label="Clear search" onClick={() => setQuery('')}><X size={15} /></button>}</label><div className="header-actions"><button className="icon-button round-button" title="Refresh workspace" aria-label="Refresh workspace" onClick={() => setRevision((value) => value + 1)}><RefreshCw size={18} className={options.loading ? 'spin' : ''} /></button><button className="icon-button round-button theme-toggle" title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><button className="profile" onClick={() => setSettings(true)} aria-label="Workspace settings"><img src="/hr-avatar.jpg" width="40" height="40" alt="" /><span><strong>{user.name}</strong><small>HR superadmin</small></span></button></div></header>
+      {logoutError && <p className="error-message logout-error" role="alert">{logoutError}</p>}
       <main><div className="breadcrumb">Workspace<ChevronRight size={13} /><span>{title}</span></div><div className="page-heading"><h1>{view === 'employees' ? 'Employee directory' : view === 'compensation' ? 'Employee compensation' : title}</h1><span className="workspace-pill"><span />People operations</span></div><div className="tabs section-tabs" role="tablist" aria-label="Workspace views">{navigation.slice(1).map(({ key, label }) => <button key={key} role="tab" aria-selected={view === key} className={view === key ? 'active' : ''} onClick={() => navigate(key)}>{label}</button>)}</div>
         {view === 'employees' && <DirectoryView query={search} filters={filters} changeFilters={setFilters} clearSearch={() => setQuery('')} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} addEmployee={() => setNewEmployee(true)} />}
         {(view === 'overview' || view === 'compensation') && <InsightsView overview={view === 'overview'} filters={filters} changeFilters={setFilters} options={options.data?.data} revision={revision} defaultCurrency={currency} />}

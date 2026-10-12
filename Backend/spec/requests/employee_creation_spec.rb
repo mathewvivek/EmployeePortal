@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "Employee creation", type: :request do
+RSpec.describe "Employee creation", type: :request, authenticated: true do
   def submit(attributes = employee_attributes)
     post "/api/v1/employees", params: { employee: attributes }, as: :json
   end

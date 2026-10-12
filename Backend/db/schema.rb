@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -53,5 +53,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_000002) do
     t.check_constraint "old_base_salary >= 0::numeric AND new_base_salary >= 0::numeric", name: "salary_changes_nonnegative_salaries"
   end
 
+  create_table "sessions", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token_digest", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_sessions_on_expires_at"
+    t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "name", null: false
+    t.string "role", default: "superadmin", null: false
+    t.string "password_digest", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.check_constraint "role::text = 'superadmin'::text", name: "users_superadmin_role"
+  end
+
   add_foreign_key "salary_changes", "employees"
+  add_foreign_key "sessions", "users"
 end

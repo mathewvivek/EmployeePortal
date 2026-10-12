@@ -8,6 +8,7 @@ precision and keep currencies separate.
 The Rails API lives in `Backend/`. The React/TypeScript UI lives in
 `Frontend/` and uses Vite. It provides an employee directory, compensation
 insights, new employee creation, salary updates with confirmation, and salary-history views.
+An HR login protects the dashboard and every employee/compensation API endpoint.
 
 ## Run the API
 
@@ -24,7 +25,8 @@ The API is available under `/api/v1`; `GET /up` is the health endpoint.
 Opening the backend's `/` URL returns JSON health status, not the React UI.
 The health endpoints indicate that Rails booted, not that PostgreSQL is available.
 See [Backend/docs/p0_contract.md](Backend/docs/p0_contract.md) for routes and request formats.
-Add employees using **New employee** in the directory or `POST /api/v1/employees`.
+Authenticated HR users can add employees using **New employee** in the directory
+or `POST /api/v1/employees`.
 The form validates employee details and initial compensation. After saving,
 the directory searches for the new employee ID and refreshes insights.
 
@@ -120,6 +122,55 @@ ALLOW_PRODUCTION_SEEDS=true SEED_EMPLOYEE_COUNT=10000 bundle exec rails db:seed
 
 No Docker runtime switch is required. Do not change `RAILS_ENV` to development.
 
+## HR Login
+
+There is one initial HR superadmin account, with access to the dashboard,
+employee creation, salary updates and salary-history review. Salary history
+remains an immutable audit trail. There is no public account-registration route.
+
+For local development, run `bin/rails db:migrate` and `bin/rails db:seed` from
+`Backend/`. The local-only demo login is:
+
+```text
+Email: hr@employeeportal.test
+Password: HrDemo!2026Access
+```
+
+Production never falls back to that demo password. For the first Render deploy,
+set these values on the Rails backend service, then rebuild and deploy:
+
+```sh
+HR_LOGIN_EMAIL=hr@employeeportal.test
+HR_LOGIN_PASSWORD=<your unique initial password>
+SEED_HR_USER=true
+RENDER_RUN_MIGRATIONS=true
+```
+
+`bin/render-build.sh` runs migrations and then `bundle exec rails db:seed`
+automatically when `SEED_HR_USER=true`; no Render Shell or manual seed command
+is needed. The seed provisions the single account using a bcrypt password hash.
+HR provisioning does not require employee demo
+seeding. After provisioning, remove `SEED_HR_USER`. Do not expose the password
+through a `VITE_` variable or commit it. Deploy both backend and frontend changes
+together because anonymous employee API requests now return `401`.
+
+Rerunning the HR seed preserves the existing password and never adds a second
+account for the same email. To rotate the password, set `HR_LOGIN_PASSWORD` to
+the new value, enable `SEED_HR_USER=true` and `ROTATE_HR_PASSWORD=true`, then
+rebuild/deploy once. This revokes existing sessions. Remove both provisioning
+and rotation flags afterward; do not change the configured email to rotate a password.
+
+`POST /api/v1/session` accepts `{ "session": { "email": "...", "password": "..." } }`
+and returns the public user profile, an opaque token and an eight-hour expiry.
+Pass `Authorization: Bearer <token>` for API calls. `GET /api/v1/session` verifies
+the current session; `DELETE /api/v1/session` signs out and revokes it. The browser
+uses per-tab `sessionStorage`, not permanent `localStorage`, and validates saved
+sessions before showing the workspace. Only token digests are stored in PostgreSQL.
+Health endpoints and login/CORS preflights remain public. Sign-in is limited to
+10 attempts per IP per three minutes per Rails process; multi-instance deployments
+need a shared rate-limit store for a global limit. Passwords and tokens are filtered
+from Rails parameter logs. Use HTTPS and keep the frontend free of untrusted scripts.
+
 ## Run the UI
 
 In a second terminal, from the repository root:
@@ -169,8 +220,8 @@ npm run build
 npm test
 ```
 
-The Playwright suite includes four API-client configuration tests and ten
-desktop Chrome tests covering employee creation,
+The Playwright suite includes five API-client configuration tests and fifteen
+desktop Chrome tests covering HR login, logout, session expiry, employee creation,
 required-field and duplicate-ID validation, pagination,
 search and filters, salary sorting, confirmed salary updates and history,
 currency-specific compensation, error recovery, and appearance settings.
