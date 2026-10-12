@@ -56,6 +56,38 @@ SEED_EMPLOYEE_COUNT=10000 SEED_REFRESH_NAMES=true bin/rails db:seed
 This updates only seeded names, preserving database IDs, salary details,
 history and employees outside the requested seed IDs.
 
+## Deploy API to Render
+
+Create a Ruby web service connected to this repository, alongside a Render
+PostgreSQL database in the same region. Configure:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `Backend` |
+| Build command | `./bin/render-build.sh` |
+| Start command | `bundle exec puma -C config/puma.rb -b tcp://0.0.0.0:$PORT` |
+| Health check path | `/up` |
+
+Set `RAILS_ENV=production`, `RUBY_VERSION=3.4.9`, `DATABASE_URL` to the Render
+database's internal connection URL, and `RAILS_MASTER_KEY` securely in Render's
+environment settings. Do not commit credentials or point a deployment at a
+development or test database.
+
+The build script installs locked gems excluding development/test groups,
+precompiles Bootsnap and runs `db:migrate:primary`. It does not compile frontend
+assets, reset databases or seed employees. The existing database configuration
+declares multiple production databases, so the script targets only `primary`.
+
+On a paid web service, prefer setting `RENDER_RUN_MIGRATIONS=false` and using
+`bundle exec rails db:migrate:primary` as the pre-deploy command. Free services
+can keep the default build-time migrations. Use backward-compatible migrations
+because the previous release can still be serving requests during deployment.
+See [Render's Rails guide](https://render.com/docs/deploy-rails-8).
+
+Authenticate and authorize API access before exposing real employee data.
+The React UI is deployed separately and needs a production `/api` proxy or
+an explicitly configured API origin with restricted CORS.
+
 ## Run the UI
 
 In a second terminal, from the repository root:

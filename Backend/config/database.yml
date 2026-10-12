@@ -90,6 +90,8 @@ production:
     database: employee_portal_production
     username: employee_portal
     password: <%= ENV["EMPLOYEE_PORTAL_DATABASE_PASSWORD"] %>
+    url: <%= ENV.fetch("DATABASE_URL") %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
   cache:
     <<: *primary_production
     database: employee_portal_production_cache
