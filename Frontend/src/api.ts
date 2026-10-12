@@ -11,6 +11,15 @@ export interface Employee {
   effective_date: string;
 }
 
+export type EmployeeInput = Omit<Employee, 'id'>;
+
+export class ApiError extends Error {
+  constructor(message: string, public fieldErrors: Record<string, string[]> = {}) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export interface SalaryChange {
   id: number;
   old_base_salary: string;
@@ -60,7 +69,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       : errors && typeof errors === 'object'
         ? Object.entries(errors).map(([field, values]) => `${field.replaceAll('_', ' ')} ${Array.isArray(values) ? values.join(', ') : values}`).join('; ')
         : 'The request could not be completed.';
-    throw new Error(message);
+    throw new ApiError(message, errors && !Array.isArray(errors) && typeof errors === 'object' ? errors : {});
   }
   return body as T;
 }
@@ -74,6 +83,9 @@ function queryString(params: Query): string {
 }
 
 export const api = {
+  createEmployee: (employee: EmployeeInput) => request<{ data: Employee }>('/employees', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee }),
+  }),
   employees: (params: Query, signal?: AbortSignal) => request<Directory>(`/employees?${queryString(params)}`, { signal }),
   insights: (params: Query = {}, signal?: AbortSignal) => request<{ data: Insights }>(`/compensation_insights?${queryString(params)}`, { signal }),
   history: (id: number, signal?: AbortSignal) => request<{ data: SalaryChange[] }>(`/employees/${id}/salary_history`, { signal }),

@@ -29,6 +29,27 @@ preserve previous history records.
 Each record contains employee details and current salary details.
 `GET /api/v1/employees/:id` looks up the database primary key.
 
+`POST /api/v1/employees` accepts an `employee` JSON object containing all
+nine model fields above. For example:
+
+```json
+{
+  "employee": {
+    "employee_id": "EMP3001", "name": "Nora Patel", "department": "Engineering",
+    "country": "India", "designation": "Software Engineer", "status": "active",
+    "base_salary": "85000.25", "currency": "INR", "effective_date": "2026-11-01"
+  }
+}
+```
+
+Success returns `201`, a resource `Location` header and the serialized employee
+in `data`. Invalid details or duplicate IDs return `422` with field-keyed
+`errors`, without inserting a record. A missing, empty or incorrectly shaped
+employee object returns `400` with JSON errors. Primary keys, timestamps and
+nested salary history cannot be assigned. Initial compensation creates no
+salary-change record; the employee participates in directory and insights
+queries immediately.
+
 | Parameter | Behavior |
 | --- | --- |
 | `q` | Name/employee-ID search; names are matched without regard to case; SQL and LIKE metacharacters are treated as text |

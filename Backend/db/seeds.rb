@@ -30,3 +30,9 @@ if Rails.env.development? && ENV["SEED_DEMO_EMPLOYEES"] == "true"
     end
   end
 end
+
+if ENV["SEED_EMPLOYEE_COUNT"].present?
+  refresh_names = ENV["SEED_REFRESH_NAMES"] == "true"
+  processed = EmployeeSeedData.load!(count: Integer(ENV.fetch("SEED_EMPLOYEE_COUNT"), 10), refresh_names: refresh_names)
+  puts "#{refresh_names ? 'Refreshed' : 'Added'} #{processed} synthetic employees; #{Employee.count} employees in total."
+end

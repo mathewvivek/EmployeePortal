@@ -1,17 +1,17 @@
 # Employee Portal
 
-Ruby 3.2.7, Rails 8.1 and PostgreSQL. The backend implements the P0 employee
+Ruby 3.4.9, Rails 8.1 and PostgreSQL. The backend implements the P0 employee
 directory, search and filters, salary management, salary history and
 compensation insights. Salaries and financial summaries retain decimal
 precision and keep currencies separate.
 
 The Rails API lives in `Backend/`. The React/TypeScript UI lives in
 `Frontend/` and uses Vite. It provides an employee directory, compensation
-insights, salary updates with confirmation, and salary-history views.
+insights, new employee creation, salary updates with confirmation, and salary-history views.
 
 ## Run the API
 
-Select Ruby 3.2.7 and start PostgreSQL, then run:
+Select Ruby 3.4.9 and start PostgreSQL, then run:
 
 ```sh
 cd Backend
@@ -22,8 +22,9 @@ bin/rails server
 
 The API is available under `/api/v1`; `GET /up` is the health endpoint.
 See [Backend/docs/p0_contract.md](Backend/docs/p0_contract.md) for routes and request formats.
-Employees can be created through `Employee.create!` in the Rails console.
-Employee creation is not exposed as an API endpoint in the P0 contract.
+Add employees using **New employee** in the directory or `POST /api/v1/employees`.
+The form validates employee details and initial compensation. After saving,
+the directory searches for the new employee ID and refreshes insights.
 
 For an optional development-only dataset of 32 employees, run from `Backend/`:
 
@@ -33,6 +34,27 @@ SEED_DEMO_EMPLOYEES=true bin/rails db:seed
 
 The seed is idempotent and preserves existing employees. It runs only in
 development when explicitly enabled.
+
+To add 10,000 synthetic employees to the development database:
+
+```sh
+SEED_EMPLOYEE_COUNT=10000 bin/rails db:seed
+```
+
+This inserts IDs `SEED00001` through `SEED10000` in batches, covering six
+departments, five countries/currencies and both statuses. Rerunning skips
+existing IDs without overwriting records. Synthetic seeding is blocked in
+production. Set `DATABASE_URL` explicitly when using a nondefault database.
+
+Names use 100 first names and 100 last names, with all 10,000 combinations
+shuffled reproducibly without duplicates. To refresh names on existing seeds:
+
+```sh
+SEED_EMPLOYEE_COUNT=10000 SEED_REFRESH_NAMES=true bin/rails db:seed
+```
+
+This updates only seeded names, preserving database IDs, salary details,
+history and employees outside the requested seed IDs.
 
 ## Run the UI
 
@@ -57,7 +79,8 @@ npm run build
 npm test
 ```
 
-The seven Playwright tests run in desktop Chrome and cover pagination,
+The ten Playwright tests run in desktop Chrome and cover employee creation,
+required-field and duplicate-ID validation, pagination,
 search and filters, salary sorting, confirmed salary updates and history,
 currency-specific compensation, error recovery, and appearance settings.
 Browser tests intercept API calls; Rails specs verify the API behavior.
@@ -70,7 +93,7 @@ npx playwright install chromium
 
 ## Run Specs
 
-Install/select Ruby 3.2.7 and start PostgreSQL, then run:
+Install/select Ruby 3.4.9 and start PostgreSQL, then run:
 
 ```sh
 cd Backend
@@ -84,8 +107,9 @@ Set `DATABASE_URL` to a dedicated test database if local PostgreSQL uses a
 password or a different host. Specs require `RAILS_ENV=test` and use database
 transactions. `Backend/config/master.key` is ignored by Git and must stay private.
 
-GitHub Actions runs the specs with PostgreSQL 16. The 10,000-employee
-dataset is deferred; these specs use a few explicit records per example.
+GitHub Actions runs the specs with PostgreSQL 16. Seed specs verify generation
+of 10,000 records and idempotent batched insertion. API and model specs use
+small isolated datasets; they never modify the development database.
 
 Confirmed salary changes lock the employee record and write salary and
 audit history in a single transaction. Existing salary-history records
@@ -98,7 +122,7 @@ Spec paths below are relative to `Backend/`.
 
 | P0 requirement | Specs |
 | --- | --- |
-| Employee directory | `spec/models/employee_spec.rb`, `spec/requests/employees_spec.rb` |
+| Employee directory and creation | `spec/models/employee_spec.rb`, `spec/requests/employees_spec.rb`, `spec/requests/employee_creation_spec.rb` |
 | Search, filters, salary sort | `spec/requests/employees_spec.rb` |
 | Salary management with confirmation | `spec/requests/salaries_spec.rb`, `spec/services/salary_updater_spec.rb` |
 | Salary history and traceability | `spec/models/salary_change_spec.rb`, `spec/requests/salaries_spec.rb` |

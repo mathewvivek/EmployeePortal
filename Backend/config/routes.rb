@@ -7,7 +7,7 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      resources :employees, only: [ :index, :show ] do
+      resources :employees, only: [ :index, :show, :create ] do
         resource :salary, only: [ :show, :update ]
         resource :salary_history, only: :show, controller: :salary_histories
       end

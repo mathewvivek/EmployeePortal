@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownWideNarrow, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Filter, IdCard, MapPin, UsersRound, X } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Filter, IdCard, MapPin, UserPlus, UsersRound, X } from 'lucide-react';
 import { api, emptyFilters, money } from './api';
 import type { Employee, Filters, Insights } from './api';
 import { Avatar, Modal, State, Status, useResource } from './ui';
@@ -24,10 +24,11 @@ export function FilterTags({ filters, change }: { filters: Filters; change: (fil
   return <div className="filter-tags">{Object.entries(filters).filter(([, value]) => value).map(([key, value]) => <button className="filter-tag" key={key} onClick={() => change({ ...filters, [key]: '' })}>{value}<X size={13} aria-label={`Remove ${value} filter`} /></button>)}</div>;
 }
 
-export default function DirectoryView({ query, filters, changeFilters, clearSearch, options, revision, pageSize, selectEmployee }: {
+export default function DirectoryView({ query, filters, changeFilters, clearSearch, options, revision, pageSize, selectEmployee, addEmployee }: {
   query: string; filters: Filters; changeFilters: (filters: Filters) => void; options?: Insights;
   revision: number; pageSize: number; selectEmployee: (employee: Employee) => void;
   clearSearch: () => void;
+  addEmployee: () => void;
 }) {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(pageSize);
@@ -47,6 +48,7 @@ export default function DirectoryView({ query, filters, changeFilters, clearSear
 
   return <>
     <div className="section-toolbar"><div className="section-heading"><h2>{total.toLocaleString()} employees</h2><span className="muted">Directory</span></div><div className="toolbar-actions">
+      <button className="button primary" onClick={addEmployee}><UserPlus size={17} />New employee</button>
       <div className="popover-anchor"><button className={`button ${sort !== 'id' ? 'selected' : ''}`} onClick={() => setShowSort(!showSort)} aria-expanded={showSort}><ArrowDownWideNarrow size={17} />Sort</button>
         {showSort && <><button className="popover-dismiss" aria-label="Close sort menu" onClick={() => setShowSort(false)} /><fieldset className="popover"><legend>Sort employees</legend>{[['id', 'Employee ID'], ['asc', 'Salary: low to high'], ['desc', 'Salary: high to low']].map(([value, label]) => <label className="radio-option" key={value}><input type="radio" name="sort" checked={sort === value} onChange={() => { setSort(value); setShowSort(false); }} />{label}</label>)}</fieldset></>}
       </div>

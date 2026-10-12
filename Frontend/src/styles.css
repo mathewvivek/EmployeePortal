@@ -194,6 +194,11 @@ dd { margin: 0; font-size: 13px; }
 .drawer-tabs button { flex: 1; }
 .drawer-body { padding: 28px 25px; }
 .drawer-body .form-fields { padding: 0; }
+.new-employee-body h3 { font-size: 15px; margin-bottom: 18px; }
+.new-employee-body .form-fields + h3 { margin-top: 28px; }
+.new-employee-body .error-message { margin-top: 20px; }
+.field-error { color: #f5a69b; font-size: 12px; line-height: 1.5; }
+.form-fields input[aria-invalid="true"], .form-fields select[aria-invalid="true"] { border-color: #f5a69b; }
 .current-salary { display: flex; flex-direction: column; gap: 9px; padding-bottom: 29px; margin-bottom: 27px; border-bottom: 1px solid var(--border); }
 .current-salary > strong { font-size: 28px; font-weight: 600; overflow-wrap: anywhere; }
 .current-salary > .muted { font-size: 11px; }
