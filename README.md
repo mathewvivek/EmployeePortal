@@ -21,6 +21,8 @@ bin/rails server
 ```
 
 The API is available under `/api/v1`; `GET /up` is the health endpoint.
+Opening the backend's `/` URL returns JSON health status, not the React UI.
+The health endpoints indicate that Rails booted, not that PostgreSQL is available.
 See [Backend/docs/p0_contract.md](Backend/docs/p0_contract.md) for routes and request formats.
 Add employees using **New employee** in the directory or `POST /api/v1/employees`.
 The form validates employee details and initial compensation. After saving,
