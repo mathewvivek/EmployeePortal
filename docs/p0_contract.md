@@ -2,8 +2,8 @@
 
 The supplied requirements define behaviors but do not prescribe field names,
 routes, statuses, supported currencies or JSON structure. The choices below
-are the contract used by the failing specs, ready for later implementation.
-No application implementation or schema is included in this change.
+are the implemented contract exercised by the model, request and service
+specs. Migrations define employee and salary-history records in PostgreSQL.
 
 ## Models
 
