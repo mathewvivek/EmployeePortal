@@ -46,6 +46,7 @@ jobs:
         ports:
           - 5432:5432
         options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - name: Install packages
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
@@ -55,8 +56,10 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
-      - name: Run Rails tests
+      - name: Run P0 feature specs
         env:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/employee_portal_test
-        run: bin/rails db:prepare test
+        run: |
+          bin/rails db:prepare
+          bundle exec rspec
