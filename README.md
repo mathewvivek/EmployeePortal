@@ -102,7 +102,33 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Vite forwards `/api` to Rails on
 `http://127.0.0.1:3000`. Set `API_TARGET` before starting Vite if Rails runs
-elsewhere. For production, serve `Frontend/dist` and forward `/api` to Rails.
+elsewhere. `API_TARGET` only controls the local development proxy.
+
+For a separately hosted backend, set this frontend build environment variable
+(for example in Vercel):
+
+```sh
+VITE_API_BASE_URL=https://employeeportal-z31o.onrender.com/api/v1
+```
+
+The frontend reads `import.meta.env.VITE_API_BASE_URL` and appends endpoint paths
+such as `/employees`. Include `/api/v1` in the configured base URL. Trailing
+slashes are removed; a missing or blank value retains the same-origin `/api/v1`
+proxy. `Frontend/.env.example` documents the local default.
+`Frontend/.env.production` sets the deployed Render API as the production-build
+default. Vercel's `VITE_API_BASE_URL` setting can override it. That tracked file
+contains only the public API URL, never credentials.
+
+Restart Vite after local environment changes; rebuild/redeploy the frontend
+after changing hosted values because Vite embeds them at build time. These
+values are public browser configuration, never a place for Rails keys or
+database credentials. See [Vite environment variables](https://vite.dev/guide/env-and-mode).
+Direct requests from a separate frontend domain require Rails CORS rules that
+allow that domain, including preflight requests for employee and salary writes.
+The backend currently allows only `https://employee-portal-frontend-1hdp.onrender.com`
+for `/api/*`, with GET, POST, PUT, PATCH, DELETE and OPTIONS. Restart/redeploy
+Rails after changing this origin. A different Vercel or preview hostname is not
+automatically allowed. CORS is a browser policy, not authentication or authorization.
 
 ## Frontend Checks
 
@@ -113,7 +139,8 @@ npm run build
 npm test
 ```
 
-The ten Playwright tests run in desktop Chrome and cover employee creation,
+The Playwright suite includes four API-client configuration tests and ten
+desktop Chrome tests covering employee creation,
 required-field and duplicate-ID validation, pagination,
 search and filters, salary sorting, confirmed salary updates and history,
 currency-specific compensation, error recovery, and appearance settings.

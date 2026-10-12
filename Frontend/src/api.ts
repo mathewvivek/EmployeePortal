@@ -56,8 +56,11 @@ export interface Directory {
 
 type Query = Record<string, string | number | undefined>;
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const apiBaseUrl = (API_BASE_URL?.trim() || '/api/v1').replace(/\/+$/, '');
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, options);
+  const response = await fetch(`${apiBaseUrl}${path}`, options);
   const text = await response.text();
   let body;
   try { body = JSON.parse(text); } catch {
