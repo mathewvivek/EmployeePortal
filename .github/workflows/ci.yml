@@ -8,6 +8,9 @@ on:
 jobs:
   scan_ruby:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -15,6 +18,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: Backend
       - name: Scan for common Rails security vulnerabilities using static analysis
         run: bin/brakeman --no-pager
       - name: Scan for known security vulnerabilities in gems used
@@ -22,6 +26,9 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
     env:
       RUBOCOP_CACHE_ROOT: tmp/rubocop
     steps:
@@ -31,11 +38,15 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: Backend
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
     services:
       postgres:
         image: postgres:16
@@ -56,6 +67,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: Backend
       - name: Run P0 feature specs
         env:
           RAILS_ENV: test
@@ -63,3 +75,20 @@ jobs:
         run: |
           bin/rails db:prepare
           bundle exec rspec
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
