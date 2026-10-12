@@ -40,10 +40,40 @@ RSpec.describe EmployeeSeedData do
 
   it "prevents synthetic seeding in production" do
     allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("production"))
+    allow(ENV).to receive(:[]).and_call_original
+    allow(ENV).to receive(:[]).with("ALLOW_PRODUCTION_SEEDS").and_return(nil)
 
     expect { described_class.load!(count: 1) }.to raise_error(ArgumentError, /development or test/)
     expect { described_class.load!(count: 1, refresh_names: true) }.to raise_error(ArgumentError, /development or test/)
     expect(Employee.count).to eq(0)
+  end
+
+  it "loads 10000 unique employees in explicitly opted-in production without overwriting existing records" do
+    existing = create_employee(employee_id: "EMP_CUSTOM")
+    original = existing.attributes
+    allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("production"))
+    allow(ENV).to receive(:[]).and_call_original
+    allow(ENV).to receive(:[]).with("ALLOW_PRODUCTION_SEEDS").and_return("true")
+
+    expect { described_class.load! }.to change(Employee, :count).by(10_000)
+    seeded = Employee.where.not(id: existing.id)
+    expect(seeded.distinct.count(:employee_id)).to eq(10_000)
+    expect(seeded.distinct.count(:name)).to eq(10_000)
+    expect(existing.reload.attributes).to eq(original)
+    expect(described_class.load!).to eq(0)
+    expect(Employee.count).to eq(10_001)
+    expect(SalaryChange.count).to eq(0)
+  end
+
+  %w[false yes].each do |permission|
+    it "rejects a non-boolean production seed opt-in #{permission}" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("production"))
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("ALLOW_PRODUCTION_SEEDS").and_return(permission)
+
+      expect { described_class.load!(count: 1) }.to raise_error(ArgumentError, /ALLOW_PRODUCTION_SEEDS=true/)
+      expect(Employee.count).to eq(0)
+    end
   end
 
   it "rejects invalid counts and batch sizes before writing records" do

@@ -46,7 +46,8 @@ SEED_EMPLOYEE_COUNT=10000 bin/rails db:seed
 This inserts IDs `SEED00001` through `SEED10000` in batches, covering six
 departments, five countries/currencies and both statuses. Rerunning skips
 existing IDs without overwriting records. Synthetic seeding is blocked in
-production. Set `DATABASE_URL` explicitly when using a nondefault database.
+production unless `ALLOW_PRODUCTION_SEEDS=true` is explicitly set. Set
+`DATABASE_URL` explicitly when using a nondefault database.
 
 Names use 100 first names and 100 last names, with all 10,000 combinations
 shuffled reproducibly without duplicates. To refresh names on existing seeds:
@@ -77,7 +78,7 @@ development or test database.
 
 The build script installs locked gems excluding development/test groups,
 precompiles Bootsnap and runs `db:migrate:primary`. It does not compile frontend
-assets, reset databases or seed employees. The existing database configuration
+assets, reset databases or seed employees by default. The existing database configuration
 declares multiple production databases, so the script targets only `primary`.
 
 On a paid web service, prefer setting `RENDER_RUN_MIGRATIONS=false` and using
@@ -89,6 +90,35 @@ See [Render's Rails guide](https://render.com/docs/deploy-rails-8).
 Authenticate and authorize API access before exposing real employee data.
 The React UI is deployed separately and needs a production `/api` proxy or
 an explicitly configured API origin with restricted CORS.
+
+### One-Time Hosted Demo Seeds
+
+Local employees are not copied to Render. To populate the hosted database with
+10,000 synthetic employees, first deploy the updated build script and seed
+loader. On the Rails backend service, temporarily set these environment values:
+
+```sh
+ALLOW_PRODUCTION_SEEDS=true
+SEED_EMPLOYEE_COUNT=10000
+RENDER_RUN_MIGRATIONS=true
+```
+
+Choose **Save, rebuild, and deploy**, using `./bin/render-build.sh` as the build
+command. The script migrates the primary database, then inserts the seed records
+into the same `DATABASE_URL` used by Rails. Look for `Added 10000 synthetic
+employees` in the build logs and verify the directory's `meta.total_count`.
+Reruns skip existing seed IDs without overwriting salary details or deleting
+other employees. Remove `ALLOW_PRODUCTION_SEEDS` and `SEED_EMPLOYEE_COUNT` after
+verification and restore your usual migration setting. Do not set
+`SEED_REFRESH_NAMES` unless you explicitly want to replace existing seed names.
+
+Alternatively, on a service with shell access, run once after migrations:
+
+```sh
+ALLOW_PRODUCTION_SEEDS=true SEED_EMPLOYEE_COUNT=10000 bundle exec rails db:seed
+```
+
+No Docker runtime switch is required. Do not change `RAILS_ENV` to development.
 
 ## Run the UI
 

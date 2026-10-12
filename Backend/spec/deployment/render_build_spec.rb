@@ -13,7 +13,7 @@ RSpec.describe "Render build script" do
       log = File.join(directory, "commands.log")
       File.write(bundle, <<~BASH)
         #!/usr/bin/env bash
-        printf '%s|%s|%s|%s|%s\n' "$PWD" "$RAILS_ENV" "$BUNDLE_FROZEN" "$BUNDLE_WITHOUT" "$*" >> "$COMMAND_LOG"
+        printf '%s|%s|%s|%s|%s|%s|%s\n' "$PWD" "$RAILS_ENV" "$BUNDLE_FROZEN" "$BUNDLE_WITHOUT" "$*" "${SEED_EMPLOYEE_COUNT:-}" "${ALLOW_PRODUCTION_SEEDS:-}" >> "$COMMAND_LOG"
         if [[ "$*" == "${FAIL_COMMAND:-}" ]]; then exit 42; fi
       BASH
       FileUtils.chmod(0o755, bundle)
@@ -21,7 +21,8 @@ RSpec.describe "Render build script" do
         "PATH" => "#{directory}:#{ENV.fetch('PATH')}", "COMMAND_LOG" => log,
         "DATABASE_URL" => "postgresql://example.invalid/employee_portal",
         "RAILS_ENV" => "development", "BUNDLE_WITHOUT" => nil,
-        "RENDER_RUN_MIGRATIONS" => nil, "FAIL_COMMAND" => nil
+        "RENDER_RUN_MIGRATIONS" => nil, "FAIL_COMMAND" => nil,
+        "SEED_EMPLOYEE_COUNT" => nil, "ALLOW_PRODUCTION_SEEDS" => nil
       }.merge(overrides)
       stdout, stderr, status = Open3.capture3(environment, "bash", script, chdir: directory)
       calls = File.exist?(log) ? File.readlines(log, chomp: true).map { |line| line.split("|") } : []
@@ -36,7 +37,7 @@ RSpec.describe "Render build script" do
   it "builds from Backend in production and migrates only the primary database" do
     result = run_build
     expect(result[:status]).to be_success
-    expect(result[:calls].map(&:last)).to eq([
+    expect(result[:calls].map { |call| call[4] }).to eq([
       "install", "exec bootsnap precompile --gemfile app/ lib/", "exec rails db:migrate:primary"
     ])
     result[:calls].each do |call|
@@ -47,7 +48,7 @@ RSpec.describe "Render build script" do
   it "can defer migrations to Render's pre-deploy command" do
     result = run_build("RENDER_RUN_MIGRATIONS" => "false")
     expect(result[:status]).to be_success
-    expect(result[:calls].map(&:last)).to eq([ "install", "exec bootsnap precompile --gemfile app/ lib/" ])
+    expect(result[:calls].map { |call| call[4] }).to eq([ "install", "exec bootsnap precompile --gemfile app/ lib/" ])
   end
 
   it "requires a database URL before running build commands" do
@@ -68,7 +69,47 @@ RSpec.describe "Render build script" do
     it "stops immediately when #{command} fails" do
       result = run_build("FAIL_COMMAND" => command)
       expect(result[:status].exitstatus).to eq(42)
-      expect(result[:calls].last.last).to eq(command)
+      expect(result[:calls].last[4]).to eq(command)
     end
+  end
+
+  it "seeds the requested production dataset only after migrations when explicitly enabled" do
+    result = run_build("SEED_EMPLOYEE_COUNT" => "10000", "ALLOW_PRODUCTION_SEEDS" => "true")
+    expect(result[:status]).to be_success
+    expect(result[:calls].map { |call| call[4] }).to eq([
+      "install", "exec bootsnap precompile --gemfile app/ lib/",
+      "exec rails db:migrate:primary", "exec rails db:seed"
+    ])
+    expect(result[:calls].last.last(2)).to eq([ "10000", "true" ])
+  end
+
+  [ nil, "false", "yes" ].each do |permission|
+    it "rejects production seeding without exact opt-in #{permission.inspect}" do
+      result = run_build("SEED_EMPLOYEE_COUNT" => "10000", "ALLOW_PRODUCTION_SEEDS" => permission)
+      expect(result[:status]).not_to be_success
+      expect(result[:stderr]).to include("ALLOW_PRODUCTION_SEEDS=true")
+      expect(result[:calls]).to be_empty
+    end
+  end
+
+  it "does not seed from the permission flag alone" do
+    result = run_build("ALLOW_PRODUCTION_SEEDS" => "true")
+    expect(result[:status]).to be_success
+    expect(result[:calls].map { |call| call[4] }).not_to include("exec rails db:seed")
+  end
+
+  it "prevents build-time seeding before deferred pre-deploy migrations" do
+    result = run_build("SEED_EMPLOYEE_COUNT" => "10000", "ALLOW_PRODUCTION_SEEDS" => "true",
+      "RENDER_RUN_MIGRATIONS" => "false")
+    expect(result[:status]).not_to be_success
+    expect(result[:stderr]).to include("Build-time seeding requires RENDER_RUN_MIGRATIONS=true")
+    expect(result[:calls]).to be_empty
+  end
+
+  it "fails the deployment when database seeding fails" do
+    result = run_build("SEED_EMPLOYEE_COUNT" => "10000", "ALLOW_PRODUCTION_SEEDS" => "true",
+      "FAIL_COMMAND" => "exec rails db:seed")
+    expect(result[:status].exitstatus).to eq(42)
+    expect(result[:calls].last[4]).to eq("exec rails db:seed")
   end
 end

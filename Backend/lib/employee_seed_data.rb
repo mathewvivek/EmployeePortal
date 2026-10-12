@@ -54,8 +54,9 @@ class EmployeeSeedData
   end
 
   def self.load!(count: COUNT, batch_size: 1000, refresh_names: false)
-    unless Rails.env.development? || Rails.env.test?
-      raise ArgumentError, "Synthetic employees can only be seeded in development or test"
+    production_enabled = Rails.env.production? && ENV["ALLOW_PRODUCTION_SEEDS"] == "true"
+    unless Rails.env.development? || Rails.env.test? || production_enabled
+      raise ArgumentError, "Synthetic employees can only be seeded in development or test unless ALLOW_PRODUCTION_SEEDS=true in production"
     end
     unless batch_size.is_a?(Integer) && batch_size.positive?
       raise ArgumentError, "Batch size must be a positive integer"
