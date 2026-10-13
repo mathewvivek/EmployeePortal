@@ -10,6 +10,7 @@ import SalaryAnalysisView from './SalaryAnalysisView';
 import DataQualityView from './DataQualityView';
 import SalaryDrawer from './SalaryDrawer';
 import NewEmployeeDrawer from './NewEmployeeDrawer';
+import EmployeeFormDrawer from './EmployeeFormDrawer';
 import { Modal, useResource } from './ui';
 
 type View = 'overview' | 'employees' | 'compensation' | 'history' | 'analysis' | 'quality';
@@ -42,6 +43,7 @@ function Workspace({ user, logout }: { user: AuthUser; logout: () => Promise<voi
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<Employee>();
   const [newEmployee, setNewEmployee] = useState(false);
+  const [editing, setEditing] = useState<Employee>();
   const [mobileMenu, setMobileMenu] = useState(false);
   const [settings, setSettings] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => {
@@ -90,7 +92,7 @@ function Workspace({ user, logout }: { user: AuthUser; logout: () => Promise<voi
       <header className="topbar"><button className="icon-button mobile-menu-button" aria-label="Open navigation" title="Navigation" onClick={() => setMobileMenu(true)}><Menu size={22} /></button><label className="search-field global-search"><Search size={20} /><input aria-label="Search employees" placeholder="Search employees..." value={query} onChange={(event) => { setQuery(event.target.value); if (view !== 'employees') setView('employees'); }} />{query && <button className="search-clear" title="Clear search" aria-label="Clear search" onClick={() => setQuery('')}><X size={15} /></button>}</label><div className="header-actions"><button className="icon-button round-button" title="Refresh workspace" aria-label="Refresh workspace" onClick={() => setRevision((value) => value + 1)}><RefreshCw size={18} className={options.loading ? 'spin' : ''} /></button><button className="icon-button round-button theme-toggle" title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><button className="profile" onClick={() => setSettings(true)} aria-label="Workspace settings"><img src="/hr-avatar.jpg" width="40" height="40" alt="" /><span><strong>{user.name}</strong><small>HR superadmin</small></span></button></div></header>
       {logoutError && <p className="error-message logout-error" role="alert">{logoutError}</p>}
       <main><div className="breadcrumb">Workspace<ChevronRight size={13} /><span>{title}</span></div><div className="page-heading"><h1>{view === 'employees' ? 'Employee directory' : view === 'compensation' ? 'Employee compensation' : title}</h1><span className="workspace-pill"><span />People operations</span></div><div className="tabs section-tabs" role="tablist" aria-label="Workspace views">{navigation.slice(1).map(({ key, label }) => <button key={key} role="tab" aria-selected={view === key} className={view === key ? 'active' : ''} onClick={() => navigate(key)}>{label}</button>)}</div>
-        {view === 'employees' && <DirectoryView query={search} filters={filters} changeFilters={setFilters} clearSearch={() => setQuery('')} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} addEmployee={() => setNewEmployee(true)} />}
+        {view === 'employees' && <DirectoryView query={search} filters={filters} changeFilters={setFilters} clearSearch={() => setQuery('')} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} editEmployee={setEditing} addEmployee={() => setNewEmployee(true)} />}
         {(view === 'overview' || view === 'compensation') && <InsightsView overview={view === 'overview'} filters={filters} changeFilters={setFilters} options={options.data?.data} revision={revision} defaultCurrency={currency} />}
         {view === 'history' && <HistoryView revision={revision} />}
         {view === 'analysis' && <SalaryAnalysisView filters={filters} changeFilters={setFilters} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} />}
@@ -98,7 +100,11 @@ function Workspace({ user, logout }: { user: AuthUser; logout: () => Promise<voi
         <footer className="workspace-footer"><span>Employee Portal</span><span>People operations</span></footer>
       </main>
     </div>
-    {selected && <SalaryDrawer key={selected.id} employee={selected} close={() => setSelected(undefined)} updated={() => { setSelected(undefined); setRevision((value) => value + 1); setNotice('Salary updated successfully'); }} />}
+    {selected && <SalaryDrawer key={selected.id} employee={selected} close={() => setSelected(undefined)} edit={() => { setEditing(selected); setSelected(undefined); }} updated={() => { setSelected(undefined); setRevision((value) => value + 1); setNotice('Salary updated successfully'); }} />}
+    {editing && <EmployeeFormDrawer key={editing.id} employee={editing} close={() => setEditing(undefined)} saved={(employee) => {
+      setEditing(undefined); setRevision((value) => value + 1); setNotice(`${employee.name} updated successfully`);
+      if (view === 'employees') { setFilters(emptyFilters); setQuery(employee.employee_id); setSearch(employee.employee_id); }
+    }} />}
     {newEmployee && <NewEmployeeDrawer preferredCurrency={currency} close={() => setNewEmployee(false)} created={(employee) => {
       setNewEmployee(false); setFilters(emptyFilters); setQuery(employee.employee_id); setSearch(employee.employee_id);
       setRevision((value) => value + 1); setNotice(`${employee.name} added successfully`);

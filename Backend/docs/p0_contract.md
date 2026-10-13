@@ -73,6 +73,49 @@ Pages beyond the last return an empty list. Salary sorting compares stored
 amounts without exchange-rate conversion; financial aggregates remain
 separate by currency.
 
+## Employee Detail Editing
+
+`PATCH /api/v1/employees/:id` and `PUT /api/v1/employees/:id` require HR authentication
+and accept an `employee` object containing any of `employee_id`, `name`, `department`,
+`country`, `designation` and `status`. Omitted fields remain unchanged. For example:
+
+```json
+{
+  "employee": {
+    "name": "Nora Morgan", "department": "Product", "country": "Germany",
+    "designation": "Product Manager", "status": "inactive"
+  }
+}
+```
+
+Success returns `200` with the complete serialized employee in `data`. The numeric
+primary key remains stable even when the business employee ID changes. Validation
+and duplicate-ID failures return `422` without changing the original record;
+unknown IDs return `404`; malformed/empty objects or objects without editable
+fields return `400`. Updates lock the employee and change only supplied detail
+fields. Primary keys, timestamps and nested salary history cannot be assigned.
+
+Compensation cannot be updated through this endpoint. Including `base_salary`,
+`currency` or `effective_date` alongside editable details rejects the entire request
+with `422`; use the separate confirmed salary API. Profile edits never create or
+modify salary history. They update employee timestamps, so stored anomaly evidence
+becomes stale and needs a rescan before review. Profile changes do not currently
+have a separate old/new audit table.
+
+`GET /api/v1/employees/options` returns `{ "data": { "countries": [...],
+"departments": [...] } }` with `Cache-Control: no-store`. It requires the same HR
+session and is a collection route, not an employee lookup. Lists are sorted,
+deduplicated unions of standard choices and distinct existing nonblank values;
+inactive employees' custom values are included. No employee names or salary values
+are returned.
+
+Standard countries: Germany, India, Japan, United Kingdom, United States.
+Standard departments: Design, Engineering, Finance, People, Product, Sales.
+These are UI choices, not model allowlists: the existing API still accepts other
+nonblank countries/departments, which then become dropdown options. Country changes
+do not automatically change salary currency. Both new/edit forms require a
+country/department selection; the edit form retains a current custom value.
+
 ## Salary API
 
 `GET /api/v1/employees/:id/salary` returns current salary details in `data`.

@@ -51,6 +51,19 @@ or `POST /api/v1/employees`.
 The form validates employee details and initial compensation. After saving,
 the directory searches for the new employee ID and refreshes insights.
 
+To edit identity or employment details, use the pencil icon on a directory row,
+or open the employee's compensation drawer and choose **Edit employee**. You can
+update employee ID, name, designation, department, country and status. Saving
+refreshes the directory and reports; salary and salary history remain unchanged.
+The directory clears old filters and searches the saved employee ID so the
+updated record stays visible. Salary edits still use **Review change > Confirm update**.
+
+Both new and edit forms use country and department dropdowns from the authenticated
+`GET /api/v1/employees/options` endpoint. Choices include the five standard countries,
+six standard departments and existing custom values, even for inactive employees.
+Options work without seeding; an existing value remains selected during editing.
+These choices are a form catalog, not a new backend allowlist. No migration is required.
+
 Compensation reports include annual averages per currency, country and department
 rankings by total salary, average salary or headcount, department salary-band
 counts, and consolidated country headcounts across currencies. Salary statistics
@@ -283,12 +296,13 @@ npm run build
 npm test
 ```
 
-The Playwright suite includes 43 tests: five API-client configuration tests and
-38 desktop browser tests covering HR login, logout, session expiry, employee creation,
+The Playwright suite includes 48 tests: five API-client configuration tests and
+43 desktop browser tests covering HR login, logout, session expiry, employee creation,
 required-field and duplicate-ID validation, pagination,
 search and filters, salary sorting, confirmed salary updates and history,
 currency-specific compensation, monthly estimates, salary ranges, role comparisons,
-outlier review and below-average reports, salary data-quality scans and HR reviews,
+outlier review and below-average reports, employee detail editing and dropdown
+loading/retries, salary data-quality scans and HR reviews,
 error recovery, and appearance settings.
 Five browser tests exercise the backend's actual theme script in an isolated
 HTML fixture, including native appearance, persistence, blocked storage and cross-tab updates.
@@ -332,6 +346,7 @@ Spec paths below are relative to `Backend/`.
 | P0 requirement | Specs |
 | --- | --- |
 | Employee directory and creation | `spec/models/employee_spec.rb`, `spec/requests/employees_spec.rb`, `spec/requests/employee_creation_spec.rb` |
+| Employee detail editing and form choices | `spec/requests/employee_update_spec.rb`, `spec/requests/employee_options_spec.rb` |
 | Search, filters, salary sort | `spec/requests/employees_spec.rb` |
 | Salary management with confirmation | `spec/requests/salaries_spec.rb`, `spec/services/salary_updater_spec.rb` |
 | Salary history and traceability | `spec/models/salary_change_spec.rb`, `spec/requests/salaries_spec.rb` |

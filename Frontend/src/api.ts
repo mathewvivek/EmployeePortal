@@ -12,6 +12,8 @@ export interface Employee {
 }
 
 export type EmployeeInput = Omit<Employee, 'id'>;
+export type EmployeeDetails = Pick<EmployeeInput, 'employee_id' | 'name' | 'department' | 'country' | 'designation' | 'status'>;
+export interface EmployeeFormOptions { countries: string[]; departments: string[] }
 
 export interface AuthUser { id: number; email: string; name: string; role: 'superadmin' }
 export interface AuthSession { user: AuthUser; token: string; expires_at: string }
@@ -157,6 +159,10 @@ export const api = {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee }),
   }),
   employees: (params: Query, signal?: AbortSignal) => request<Directory>(`/employees?${queryString(params)}`, { signal }),
+  employeeOptions: (signal?: AbortSignal) => request<{ data: EmployeeFormOptions }>('/employees/options', { signal }),
+  updateEmployee: (id: number, employee: EmployeeDetails) => request<{ data: Employee }>(`/employees/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee }),
+  }),
   insights: (params: Query = {}, signal?: AbortSignal) => request<{ data: Insights }>(`/compensation_insights?${queryString(params)}`, { signal }),
   salaryAnalysis: (params: Query, signal?: AbortSignal) => request<SalaryAnalysisResponse>(`/salary_analysis?${queryString(params)}`, { signal }),
   dataAnomalies: (params: Query, signal?: AbortSignal) => request<AnomalyDirectory>(`/salary_data_anomalies?${queryString(params)}`, { signal }),

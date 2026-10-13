@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownWideNarrow, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Filter, IdCard, MapPin, UserPlus, UsersRound, X } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Filter, IdCard, MapPin, Pencil, UserPlus, UsersRound, X } from 'lucide-react';
 import { api, emptyFilters, money } from './api';
 import type { Employee, Filters, Insights } from './api';
 import { Avatar, Modal, State, Status, useResource } from './ui';
@@ -24,11 +24,12 @@ export function FilterTags({ filters, change }: { filters: Filters; change: (fil
   return <div className="filter-tags">{Object.entries(filters).filter(([, value]) => value).map(([key, value]) => <button className="filter-tag" key={key} onClick={() => change({ ...filters, [key]: '' })}>{value}<X size={13} aria-label={`Remove ${value} filter`} /></button>)}</div>;
 }
 
-export default function DirectoryView({ query, filters, changeFilters, clearSearch, options, revision, pageSize, selectEmployee, addEmployee }: {
+export default function DirectoryView({ query, filters, changeFilters, clearSearch, options, revision, pageSize, selectEmployee, addEmployee, editEmployee }: {
   query: string; filters: Filters; changeFilters: (filters: Filters) => void; options?: Insights;
   revision: number; pageSize: number; selectEmployee: (employee: Employee) => void;
   clearSearch: () => void;
   addEmployee: () => void;
+  editEmployee: (employee: Employee) => void;
 }) {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(pageSize);
@@ -57,7 +58,7 @@ export default function DirectoryView({ query, filters, changeFilters, clearSear
     <FilterTags filters={filters} change={changeFilters} />
     {directory.error ? <State error={directory.error} retry={directory.reload} /> : directory.loading && !directory.data ? <State loading /> : total === 0 ? <div className="empty-directory"><State empty="No employees found" />{(query || count > 0) && <button className="button" onClick={() => { changeFilters(emptyFilters); clearSearch(); }}>Reset search</button>}</div> : <div className={`table-wrap ${directory.loading ? 'refreshing' : ''}`} aria-busy={directory.loading}>
       <table className="employee-table"><thead><tr><th><span><IdCard size={17} />Employee ID</span></th><th><span><UsersRound size={17} />Employee</span></th><th>Department</th><th><span><MapPin size={16} />Country</span></th><th className="numeric"><span><Banknote size={18} />Base salary</span></th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
-        <tbody>{directory.data?.data.map((employee) => <tr key={employee.id}><td className="employee-id">{employee.employee_id}</td><td><button className="person-button" onClick={() => selectEmployee(employee)}><Avatar name={employee.name} id={employee.id} /><span><strong>{employee.name}</strong><small>{employee.designation}</small></span></button></td><td>{employee.department}</td><td className="country-cell">{employee.country}</td><td className="numeric"><strong className="salary-value">{money(employee.base_salary, employee.currency)}</strong><small className="currency-label">{employee.currency} / year</small></td><td><Status status={employee.status} /></td><td><button className="icon-button row-action" title={`View ${employee.name}'s salary`} aria-label={`View ${employee.name}'s salary`} onClick={() => selectEmployee(employee)}><ArrowUpRight size={18} /></button></td></tr>)}</tbody>
+        <tbody>{directory.data?.data.map((employee) => <tr key={employee.id}><td className="employee-id">{employee.employee_id}</td><td><button className="person-button" onClick={() => selectEmployee(employee)}><Avatar name={employee.name} id={employee.id} /><span><strong>{employee.name}</strong><small>{employee.designation}</small></span></button></td><td>{employee.department}</td><td className="country-cell">{employee.country}</td><td className="numeric"><strong className="salary-value">{money(employee.base_salary, employee.currency)}</strong><small className="currency-label">{employee.currency} / year</small></td><td><Status status={employee.status} /></td><td><div className="employee-row-actions"><button className="icon-button row-action" title={`Edit ${employee.name}'s details`} aria-label={`Edit ${employee.name}'s details`} onClick={() => editEmployee(employee)}><Pencil size={17} /></button><button className="icon-button row-action" title={`View ${employee.name}'s salary`} aria-label={`View ${employee.name}'s salary`} onClick={() => selectEmployee(employee)}><ArrowUpRight size={18} /></button></div></td></tr>)}</tbody>
       </table>
     </div>}
     {meta && total > 0 && <footer className="table-footer"><span className="muted">Showing {(page - 1) * size + 1}-{Math.min(page * size, total)} of {total}</span><nav className="pagination" aria-label="Employee pages"><button className="page-button" title="Previous page" aria-label="Previous page" disabled={page <= 1 || directory.loading} onClick={() => setPage(page - 1)}><ChevronLeft size={19} /></button>{pageNumbers.map((number, index) => <span className="page-slot" key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <span className="page-ellipsis">...</span>}<button className={`page-button ${number === page ? 'current' : ''}`} aria-label={`Page ${number}`} aria-current={number === page ? 'page' : undefined} onClick={() => setPage(number)}>{number}</button></span>)}<button className="page-button" title="Next page" aria-label="Next page" disabled={page >= pages || directory.loading} onClick={() => setPage(page + 1)}><ChevronRight size={19} /></button></nav><label className="rows-label">Rows<select aria-label="Rows per page" value={size} onChange={(event) => setSize(Number(event.target.value))}>{[8, 16, 25, 50].map((value) => <option key={value}>{value}</option>)}</select></label></footer>}

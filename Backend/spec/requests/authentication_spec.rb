@@ -57,7 +57,7 @@ RSpec.describe "HR authentication", type: :request do
     expect(json_response.fetch("errors").first).to include("Too many")
   end
 
-  [ "/api/v1/employees", "/api/v1/compensation_insights", "/api/v1/salary_analysis", "/api/v1/employees/1/salary",
+  [ "/api/v1/employees", "/api/v1/employees/options", "/api/v1/compensation_insights", "/api/v1/salary_analysis", "/api/v1/employees/1/salary",
     "/api/v1/employees/1/salary_history", "/api/v1/session", "/api/v1/salary_data_anomalies",
     "/api/v1/salary_data_anomalies/1" ].each do |path|
     it "requires authentication to read #{path}" do
@@ -87,6 +87,14 @@ RSpec.describe "HR authentication", type: :request do
     expect(response).to have_http_status(:unauthorized)
     expect(employee.reload.base_salary.to_s("F")).to eq("60000.5")
     expect(SalaryChange.count).to eq(0)
+  end
+
+  it "prevents unauthenticated employee detail changes" do
+    employee = create_employee
+    previous = employee.attributes
+    patch "/api/v1/employees/#{employee.id}", params: { employee: { name: "Not authorized" } }, as: :json
+    expect(response).to have_http_status(:unauthorized)
+    expect(employee.reload.attributes).to eq(previous)
   end
 
   it "rejects expired or tampered bearer tokens" do

@@ -56,6 +56,9 @@ test('all API operations use the configured prefix without duplicate slashes', a
     await api.dataAnomalies({ review_status: 'pending', include_cleared: 'false', page: 2 });
     await api.dataAnomaly(12, { page: 2, per_page: 5 });
     await api.reviewDataAnomaly(12, 'legitimate', 'Unpaid placement confirmed');
+    await api.employeeOptions();
+    await api.updateEmployee(7, { employee_id: 'EMP_NEW', name: 'Updated Employee', department: 'Sales',
+      country: 'Germany', designation: 'Account Executive', status: 'inactive' });
   });
   expect(calls.map(({ url }) => url)).toEqual([
     'https://api.example.invalid/api/v1/employees?q=Alice+Morgan&page=2',
@@ -68,6 +71,8 @@ test('all API operations use the configured prefix without duplicate slashes', a
     'https://api.example.invalid/api/v1/salary_data_anomalies?review_status=pending&include_cleared=false&page=2',
     'https://api.example.invalid/api/v1/salary_data_anomalies/12?page=2&per_page=5',
     'https://api.example.invalid/api/v1/salary_data_anomalies/12',
+    'https://api.example.invalid/api/v1/employees/options',
+    'https://api.example.invalid/api/v1/employees/7',
   ]);
   expect(calls[3].options?.method).toBe('POST');
   expect(JSON.parse(calls[3].options?.body as string).employee.employee_id).toBe('EMP_NEW');
@@ -76,6 +81,8 @@ test('all API operations use the configured prefix without duplicate slashes', a
   expect(calls[6].options?.method).toBe('POST');
   expect(calls[9].options?.method).toBe('PATCH');
   expect(JSON.parse(calls[9].options?.body as string)).toEqual({ review: { status: 'legitimate', notes: 'Unpaid placement confirmed' } });
+  expect(calls[11].options?.method).toBe('PATCH');
+  expect(Object.keys(JSON.parse(calls[11].options?.body as string).employee).sort()).toEqual(['country', 'department', 'designation', 'employee_id', 'name', 'status']);
 });
 
 test('authenticated requests carry bearer tokens but login never sends an old token', async () => {
@@ -89,6 +96,8 @@ test('authenticated requests carry bearer tokens but login never sends an old to
     await api.dataAnomalies({});
     await api.dataAnomaly(1);
     await api.reviewDataAnomaly(1, 'investigating', 'Checking the source');
+    await api.employeeOptions();
+    await api.updateEmployee(1, { employee_id: 'EMP1', name: 'Updated', department: 'Sales', country: 'India', designation: 'Engineer', status: 'active' });
   }, 'test-token');
   expect(new Headers(calls[0].options?.headers).get('Authorization')).toBeNull();
   expect(JSON.parse(calls[0].options?.body as string).session.email).toBe('hr@example.com');

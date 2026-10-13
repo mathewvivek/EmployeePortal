@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { AnomalyDetails, DataQualityScan, Employee, EmployeeInput, Insights, Metrics, RoleComparison, SalaryChange, SalaryDataAnomaly, SalaryReviewEmployee } from '../src/api';
+import type { AnomalyDetails, DataQualityScan, Employee, EmployeeDetails, EmployeeInput, Insights, Metrics, RoleComparison, SalaryChange, SalaryDataAnomaly, SalaryReviewEmployee } from '../src/api';
 
 function summarize(records: Employee[]): Insights {
   const country_headcounts: Record<string, number> = {};
@@ -69,6 +69,10 @@ async function workspace(page: Page, signedIn = true) {
   let reviewConflict = false;
   const updates: Record<string, unknown>[] = [];
   const creations: EmployeeInput[] = [];
+  const profileUpdates: EmployeeDetails[] = [];
+  let optionsFailure = false;
+  let profileFailure = false;
+  let optionsDelay = 0;
   const queries: URLSearchParams[] = [];
   const insightQueries: URLSearchParams[] = [];
   let insightsOverride: Insights | undefined;
@@ -96,6 +100,26 @@ async function workspace(page: Page, signedIn = true) {
     }
     if (!validSession || request.headers().authorization !== `Bearer ${token}`) {
       return route.fulfill({ status: 401, json: { errors: ['Please sign in to continue'] } });
+    }
+    if (url.pathname === '/api/v1/employees/options') {
+      if (optionsDelay) await new Promise((resolve) => setTimeout(resolve, optionsDelay));
+      if (optionsFailure) return route.fulfill({ status: 503, json: { errors: ['Employee choices unavailable'] } });
+      return route.fulfill({ json: { data: {
+        countries: [...new Set(['United States', 'India', 'United Kingdom', 'Germany', 'Japan', ...records.map((record) => record.country)])].sort(),
+        departments: [...new Set(['Engineering', 'Design', 'People', 'Finance', 'Product', 'Sales', ...records.map((record) => record.department)])].sort(),
+      } } });
+    }
+    if (/^\/api\/v1\/employees\/\d+$/.test(url.pathname) && ['PATCH', 'PUT'].includes(request.method())) {
+      const details = request.postDataJSON().employee as EmployeeDetails;
+      profileUpdates.push(details);
+      if (profileFailure) return route.fulfill({ status: 503, json: { errors: ['Employee update unavailable'] } });
+      const record = [...records, ...reviewRecords, ...qualityRecords].find((employee) => employee.id === Number(url.pathname.split('/').at(-1)))!;
+      if (records.some((employee) => employee.id !== record.id && employee.employee_id === details.employee_id)) {
+        return route.fulfill({ status: 422, json: { errors: { employee_id: ['has already been taken'] } } });
+      }
+      Object.assign(record, details);
+      for (const finding of findings.filter((finding) => finding.employee.id === record.id)) { finding.employee = { ...record }; finding.source_stale = true; }
+      return route.fulfill({ json: { data: record } });
     }
     if (url.pathname.endsWith('/salary_data_quality_scans')) {
       scanCalls++;
@@ -231,6 +255,8 @@ async function workspace(page: Page, signedIn = true) {
       meta: { page: current, per_page: size, total_count: results.length, total_pages: Math.ceil(results.length / size) } } });
   });
   return { updates, creations, queries, insightQueries, logins, expireSession: () => { validSession = false; },
+    records, profileUpdates, setOptionsFailure: (value: boolean) => { optionsFailure = value; },
+    setProfileFailure: (value: boolean) => { profileFailure = value; }, setOptionsDelay: (value: number) => { optionsDelay = value; },
     findings, reviewEvents, qualityQueries, getScanCalls: () => scanCalls,
     setScanFailure: (value: boolean) => { scanFailure = value; }, setQualityFailure: (value: boolean) => { qualityFailure = value; },
     setReviewConflict: (value: boolean) => { reviewConflict = value; },
@@ -713,15 +739,134 @@ async function fillEmployee(page: Page, employeeId = 'EMP3001') {
   const dialog = page.getByRole('dialog', { name: 'New employee', exact: true });
   await dialog.getByRole('textbox', { name: 'Employee ID', exact: true }).fill(employeeId);
   await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('  Nora Patel  ');
-  await dialog.getByRole('textbox', { name: 'Department', exact: true }).fill('Engineering');
+  await dialog.getByRole('combobox', { name: 'Department', exact: true }).selectOption('Engineering');
   await dialog.getByRole('textbox', { name: 'Designation', exact: true }).fill('Software Engineer');
-  await dialog.getByRole('textbox', { name: 'Country', exact: true }).fill('India');
+  await dialog.getByRole('combobox', { name: 'Country', exact: true }).selectOption('India');
   await dialog.getByRole('combobox', { name: 'Status', exact: true }).selectOption('inactive');
   await dialog.getByRole('spinbutton', { name: 'Base salary', exact: true }).fill('85000.25');
   await dialog.getByRole('combobox', { name: 'Currency', exact: true }).selectOption('INR');
   await dialog.getByLabel('Effective date', { exact: true }).fill('2026-11-01');
   return dialog;
 }
+
+test('employee details edit prepopulates dropdowns and refreshes the directory and reports without changing pay', async ({ page }, info) => {
+  const state = await workspace(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: "Edit Dianne Russell's details", exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit employee', exact: true });
+  await expect(dialog.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Dianne Russell');
+  await expect(dialog.getByRole('combobox', { name: 'Country', exact: true })).toHaveValue('India');
+  await expect(dialog.getByRole('combobox', { name: 'Department', exact: true })).toHaveValue('Engineering');
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  await expect(dialog.getByRole('spinbutton', { name: 'Base salary' })).toHaveCount(0);
+  await dialog.getByRole('textbox', { name: 'Employee ID', exact: true }).fill('EMP_EDITED');
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('  Dianne Updated  ');
+  await dialog.getByRole('textbox', { name: 'Designation', exact: true }).fill('Product Manager');
+  await dialog.getByRole('combobox', { name: 'Country', exact: true }).selectOption('Germany');
+  await dialog.getByRole('combobox', { name: 'Department', exact: true }).selectOption('Product');
+  await dialog.getByRole('combobox', { name: 'Status', exact: true }).selectOption('inactive');
+  for (const width of [1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`edit-employee-${width}.png`), fullPage: true });
+  }
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Dianne Updated updated successfully')).toBeVisible();
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(page.locator('tbody tr')).toContainText('EMP_EDITED');
+  await expect(page.locator('tbody tr')).toContainText('Product');
+  await expect(page.locator('tbody tr')).toContainText('Germany');
+  await expect(page.locator('tbody tr')).toContainText('$72,000.00');
+  expect(state.profileUpdates).toEqual([{ employee_id: 'EMP_EDITED', name: 'Dianne Updated', department: 'Product',
+    country: 'Germany', designation: 'Product Manager', status: 'inactive' }]);
+  expect(state.updates).toHaveLength(0);
+  await page.getByRole('button', { name: 'View Dianne Updated\'s salary', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Employee compensation' }).getByRole('tab', { name: 'Salary history', exact: true }).click();
+  await expect(page.getByText('No salary changes yet')).toBeVisible();
+  await page.getByRole('button', { name: 'Close Employee compensation' }).click();
+  await navigate(page, 'Compensation');
+  await expect(page.getByRole('table', { name: 'Country salary rankings' })).toContainText('Germany');
+});
+
+test('employee editing is available from compensation without stacking dialogs and preserves legacy dropdown values', async ({ page }) => {
+  const state = await workspace(page);
+  state.records[0].country = 'Canada'; state.records[0].department = 'Research';
+  await page.goto('/');
+  await page.getByRole('button', { name: 'View Dianne Russell\'s salary', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit employee', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit employee', exact: true });
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(dialog.getByRole('combobox', { name: 'Country', exact: true })).toHaveValue('Canada');
+  await expect(dialog.getByRole('combobox', { name: 'Department', exact: true })).toHaveValue('Research');
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('Legacy Employee');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.profileUpdates[0]).toMatchObject({ country: 'Canada', department: 'Research' });
+});
+
+test('employee edit validates whitespace, preserves duplicate-ID drafts and supports a corrected retry', async ({ page }) => {
+  const state = await workspace(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: "Edit Dianne Russell's details", exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit employee', exact: true });
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('  ');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog.getByRole('textbox', { name: 'Full name', exact: true })).toHaveAttribute('aria-invalid', 'true');
+  expect(state.profileUpdates).toHaveLength(0);
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('Updated Name');
+  await dialog.getByRole('textbox', { name: 'Employee ID', exact: true }).fill('EMP2002');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('has already been taken');
+  await expect(dialog.getByRole('textbox', { name: 'Employee ID', exact: true })).toBeFocused();
+  await expect(dialog.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Updated Name');
+  await dialog.getByRole('textbox', { name: 'Employee ID', exact: true }).fill('EMP_CORRECTED');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.profileUpdates).toHaveLength(2);
+});
+
+test('country and department choices load before saving and failed loads preserve the form for retry', async ({ page }) => {
+  const state = await workspace(page);
+  state.setOptionsFailure(true);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New employee', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New employee', exact: true });
+  await expect(dialog.getByRole('alert')).toContainText('Employee choices unavailable');
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('Draft Employee');
+  await expect(dialog.getByRole('combobox', { name: 'Country', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Add employee' })).toBeDisabled();
+  state.setOptionsFailure(false); state.setOptionsDelay(250);
+  await dialog.getByRole('button', { name: 'Try again' }).click();
+  await expect(dialog.getByRole('combobox', { name: 'Country', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('combobox', { name: 'Country', exact: true })).toBeEnabled();
+  await expect(dialog.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Draft Employee');
+  await expect(dialog.getByRole('combobox', { name: 'Department', exact: true }).locator('option')).toHaveText(['Select department', 'Design', 'Engineering', 'Finance', 'People', 'Product', 'Sales']);
+  expect(state.creations).toHaveLength(0);
+});
+
+test('failed employee edits retain selections and can be retried; cancellation never writes', async ({ page }) => {
+  const state = await workspace(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: "Edit Dianne Russell's details", exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit employee', exact: true });
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('Cancelled Name');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(state.profileUpdates).toHaveLength(0);
+  await page.getByRole('button', { name: "Edit Dianne Russell's details", exact: true }).click();
+  await dialog.getByRole('textbox', { name: 'Full name', exact: true }).fill('Retried Name');
+  await dialog.getByRole('combobox', { name: 'Country', exact: true }).selectOption('Germany');
+  state.setProfileFailure(true);
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Employee update unavailable');
+  await expect(dialog.getByRole('textbox', { name: 'Full name', exact: true })).toHaveValue('Retried Name');
+  await expect(dialog.getByRole('combobox', { name: 'Country', exact: true })).toHaveValue('Germany');
+  state.setProfileFailure(false);
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.profileUpdates).toHaveLength(2);
+  expect(state.updates).toHaveLength(0);
+});
 
 test('new employee is saved and displayed after clearing previous directory filters', async ({ page }, info) => {
   const state = await workspace(page);
