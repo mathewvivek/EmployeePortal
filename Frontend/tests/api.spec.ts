@@ -51,6 +51,11 @@ test('all API operations use the configured prefix without duplicate slashes', a
     await api.createEmployee({ employee_id: 'EMP_NEW', name: 'Alice Morgan', department: 'Engineering',
       country: 'India', designation: 'Engineer', status: 'active', base_salary: '100.25', currency: 'INR', effective_date: '2026-10-12' });
     await api.updateSalary(7, { base_salary: '200.50', currency: 'INR', effective_date: '2026-11-01', confirmed: true });
+    await api.salaryAnalysis({ report: 'outliers', currency: 'USD', country: 'United States', page: 2 });
+    await api.runSalaryChecks();
+    await api.dataAnomalies({ review_status: 'pending', include_cleared: 'false', page: 2 });
+    await api.dataAnomaly(12, { page: 2, per_page: 5 });
+    await api.reviewDataAnomaly(12, 'legitimate', 'Unpaid placement confirmed');
   });
   expect(calls.map(({ url }) => url)).toEqual([
     'https://api.example.invalid/api/v1/employees?q=Alice+Morgan&page=2',
@@ -58,11 +63,19 @@ test('all API operations use the configured prefix without duplicate slashes', a
     'https://api.example.invalid/api/v1/employees/7/salary_history',
     'https://api.example.invalid/api/v1/employees',
     'https://api.example.invalid/api/v1/employees/7/salary',
+    'https://api.example.invalid/api/v1/salary_analysis?report=outliers&currency=USD&country=United+States&page=2',
+    'https://api.example.invalid/api/v1/salary_data_quality_scans',
+    'https://api.example.invalid/api/v1/salary_data_anomalies?review_status=pending&include_cleared=false&page=2',
+    'https://api.example.invalid/api/v1/salary_data_anomalies/12?page=2&per_page=5',
+    'https://api.example.invalid/api/v1/salary_data_anomalies/12',
   ]);
   expect(calls[3].options?.method).toBe('POST');
   expect(JSON.parse(calls[3].options?.body as string).employee.employee_id).toBe('EMP_NEW');
   expect(calls[4].options?.method).toBe('PATCH');
   expect(JSON.parse(calls[4].options?.body as string).salary.confirmed).toBe(true);
+  expect(calls[6].options?.method).toBe('POST');
+  expect(calls[9].options?.method).toBe('PATCH');
+  expect(JSON.parse(calls[9].options?.body as string)).toEqual({ review: { status: 'legitimate', notes: 'Unpaid placement confirmed' } });
 });
 
 test('authenticated requests carry bearer tokens but login never sends an old token', async () => {
@@ -71,6 +84,11 @@ test('authenticated requests carry bearer tokens but login never sends an old to
     await api.session();
     await api.employees({});
     await api.logout();
+    await api.salaryAnalysis({ report: 'roles' });
+    await api.runSalaryChecks();
+    await api.dataAnomalies({});
+    await api.dataAnomaly(1);
+    await api.reviewDataAnomaly(1, 'investigating', 'Checking the source');
   }, 'test-token');
   expect(new Headers(calls[0].options?.headers).get('Authorization')).toBeNull();
   expect(JSON.parse(calls[0].options?.body as string).session.email).toBe('hr@example.com');

@@ -1,0 +1,861 @@
+{
+  "schema_version": "20261013000004",
+  "generated_on": "2026-10-13",
+  "adapter": "PostgreSQL",
+  "tables": [
+    {
+      "name": "employees",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('employees_id_seq'::regclass)"
+        },
+        {
+          "name": "employee_id",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "name",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "department",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "country",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "designation",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "status",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "base_salary",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "currency",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "effective_date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_employees_on_base_salary_and_employee_id",
+          "columns": [
+            "base_salary",
+            "employee_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_employees_on_country_and_department_and_status",
+          "columns": [
+            "country",
+            "department",
+            "status"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_employees_on_department",
+          "columns": [
+            "department"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_employees_on_employee_id",
+          "columns": [
+            "employee_id"
+          ],
+          "unique": true,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_employees_on_status",
+          "columns": [
+            "status"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        {
+          "name": "employees_nonnegative_salary",
+          "expression": "base_salary >= 0::numeric"
+        },
+        {
+          "name": "employees_supported_currency",
+          "expression": "currency::text = ANY (ARRAY['INR'::character varying::text, 'USD'::character varying::text, 'GBP'::character varying::text, 'EUR'::character varying::text, 'JPY'::character varying::text])"
+        },
+        {
+          "name": "employees_supported_status",
+          "expression": "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text])"
+        }
+      ]
+    },
+    {
+      "name": "salary_changes",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('salary_changes_id_seq'::regclass)"
+        },
+        {
+          "name": "employee_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "old_base_salary",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "new_base_salary",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "old_currency",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "new_currency",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "old_effective_date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "effective_date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "changed_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_salary_changes_on_employee_id",
+          "columns": [
+            "employee_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_salary_changes_on_employee_id_and_changed_at_and_id",
+          "columns": [
+            "employee_id",
+            "changed_at",
+            "id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "column": "employee_id",
+          "to_table": "employees",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "salary_changes_supported_currencies",
+          "expression": "(old_currency::text = ANY (ARRAY['INR'::character varying::text, 'USD'::character varying::text, 'GBP'::character varying::text, 'EUR'::character varying::text, 'JPY'::character varying::text])) AND (new_currency::text = ANY (ARRAY['INR'::character varying::text, 'USD'::character varying::text, 'GBP'::character varying::text, 'EUR'::character varying::text, 'JPY'::character varying::text]))"
+        },
+        {
+          "name": "salary_changes_nonnegative_salaries",
+          "expression": "old_base_salary >= 0::numeric AND new_base_salary >= 0::numeric"
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('users_id_seq'::regclass)"
+        },
+        {
+          "name": "email",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "name",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "role",
+          "type": "character varying",
+          "nullable": false,
+          "default": "superadmin",
+          "default_function": null
+        },
+        {
+          "name": "password_digest",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_users_on_email",
+          "columns": [
+            "email"
+          ],
+          "unique": true,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        {
+          "name": "users_superadmin_role",
+          "expression": "role::text = 'superadmin'::text"
+        }
+      ]
+    },
+    {
+      "name": "sessions",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('sessions_id_seq'::regclass)"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "token_digest",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_sessions_on_expires_at",
+          "columns": [
+            "expires_at"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_sessions_on_token_digest",
+          "columns": [
+            "token_digest"
+          ],
+          "unique": true,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_sessions_on_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "column": "user_id",
+          "to_table": "users",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "salary_data_quality_scans",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('salary_data_quality_scans_id_seq'::regclass)"
+        },
+        {
+          "name": "requested_by_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "completed_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": true,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "checked_employees",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "default_function": null
+        },
+        {
+          "name": "detected_findings",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "default_function": null
+        },
+        {
+          "name": "new_findings",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "default_function": null
+        },
+        {
+          "name": "affected_employees",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "default_function": null
+        },
+        {
+          "name": "cleared_findings",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_salary_data_quality_scans_on_requested_by_id",
+          "columns": [
+            "requested_by_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "column": "requested_by_id",
+          "to_table": "users",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "salary_data_anomalies",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('salary_data_anomalies_id_seq'::regclass)"
+        },
+        {
+          "name": "employee_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "last_seen_scan_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "fingerprint",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "rule_code",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "severity",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "snapshot",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "{}",
+          "default_function": null
+        },
+        {
+          "name": "observed",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "{}",
+          "default_function": null
+        },
+        {
+          "name": "reference",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "{}",
+          "default_function": null
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "default_function": null
+        },
+        {
+          "name": "review_status",
+          "type": "character varying",
+          "nullable": false,
+          "default": "pending",
+          "default_function": null
+        },
+        {
+          "name": "review_notes",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "reviewed_by_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": true,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "cleared_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": true,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_salary_anomalies_on_review_queue",
+          "columns": [
+            "active",
+            "review_status",
+            "created_at"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_salary_data_anomalies_on_employee_id",
+          "columns": [
+            "employee_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_salary_data_anomalies_on_fingerprint",
+          "columns": [
+            "fingerprint"
+          ],
+          "unique": true,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_salary_data_anomalies_on_last_seen_scan_id",
+          "columns": [
+            "last_seen_scan_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_salary_data_anomalies_on_reviewed_by_id",
+          "columns": [
+            "reviewed_by_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "column": "last_seen_scan_id",
+          "to_table": "salary_data_quality_scans",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        },
+        {
+          "column": "reviewed_by_id",
+          "to_table": "users",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        },
+        {
+          "column": "employee_id",
+          "to_table": "employees",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "salary_anomalies_review_status",
+          "expression": "review_status::text = ANY (ARRAY['pending'::character varying, 'investigating'::character varying, 'confirmed_error'::character varying, 'legitimate'::character varying]::text[])"
+        },
+        {
+          "name": "salary_anomalies_severity",
+          "expression": "severity::text = ANY (ARRAY['warning'::character varying, 'info'::character varying]::text[])"
+        }
+      ]
+    },
+    {
+      "name": "salary_data_anomaly_reviews",
+      "primary_key": "id",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": "nextval('salary_data_anomaly_reviews_id_seq'::regclass)"
+        },
+        {
+          "name": "salary_data_anomaly_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "reviewed_by_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "status",
+          "type": "character varying",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) without time zone",
+          "nullable": false,
+          "default": null,
+          "default_function": null
+        }
+      ],
+      "indexes": [
+        {
+          "name": "index_salary_data_anomaly_reviews_on_reviewed_by_id",
+          "columns": [
+            "reviewed_by_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        },
+        {
+          "name": "index_salary_data_anomaly_reviews_on_salary_data_anomaly_id",
+          "columns": [
+            "salary_data_anomaly_id"
+          ],
+          "unique": false,
+          "using": "btree",
+          "where": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "column": "salary_data_anomaly_id",
+          "to_table": "salary_data_anomalies",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        },
+        {
+          "column": "reviewed_by_id",
+          "to_table": "users",
+          "primary_key": "id",
+          "on_delete": null,
+          "on_update": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "salary_anomaly_reviews_status",
+          "expression": "status::text = ANY (ARRAY['pending'::character varying, 'investigating'::character varying, 'confirmed_error'::character varying, 'legitimate'::character varying]::text[])"
+        }
+      ]
+    }
+  ]
+}

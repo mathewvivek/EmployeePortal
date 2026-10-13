@@ -22,13 +22,76 @@ bin/rails server
 ```
 
 The API is available under `/api/v1`; `GET /up` is the health endpoint.
-Opening the backend's `/` URL returns JSON health status, not the React UI.
+Opening the backend's `/` URL shows a public API status page with application
+liveness, a UTC check time and a link to the React portal. API endpoint details
+and version/base-path metadata are not displayed on this public page.
+JSON health remains available at `/?format=json` or with `Accept: application/json`.
 The health endpoints indicate that Rails booted, not that PostgreSQL is available.
+The page deliberately does not query employees, expose salaries or display
+server credentials. Optional backend `FRONTEND_URL` configures the public portal
+origin; production requires HTTPS without credentials, query strings or fragments.
+The status page supports light and black themes. It follows native system
+appearance until a visitor toggles it, then remembers the choice in browser storage.
+Defaults are `http://127.0.0.1:5173` locally and
+`https://employee-portal-frontend-1hdp.onrender.com` in production. Changing this
+link does not change CORS permissions. Keep Render's health check path as `/up`.
 See [Backend/docs/p0_contract.md](Backend/docs/p0_contract.md) for routes and request formats.
+The [database schema PDF](reports/EmployeePortal-Database-Schema.pdf) includes
+the ERD, table definitions, relationships, indexes and constraints. The
+[SVG diagram](reports/EmployeePortal-Database-ERD.svg) and
+[Mermaid source](reports/EmployeePortal-Database-ERD.mmd) are editable versions.
+These document the local schema snapshot, not production data. Regenerate the
+PDF from its metadata snapshot with `node reports/build-database-report.mjs --pdf`
+after installing frontend dependencies (Chrome is used on macOS).
+The [Planning & Design Notes](reports/EmployeePortal-Planning-Design-Notes.pdf)
+document scope, architecture, workflows, security, testing, deployment and
+remaining work, distinguishing current implementation from proposed changes.
 Authenticated HR users can add employees using **New employee** in the directory
 or `POST /api/v1/employees`.
 The form validates employee details and initial compensation. After saving,
 the directory searches for the new employee ID and refreshes insights.
+
+Compensation reports include annual averages per currency, country and department
+rankings by total salary, average salary or headcount, department salary-band
+counts, and consolidated country headcounts across currencies. Salary statistics
+never mix currencies; the MVP uses per-currency averages rather than exchange-rate
+normalization. See the P0 contract for the fixed annual salary-band boundaries.
+
+Overview and compensation also show monthly base-payroll estimates (annual base
+salary divided by 12) and lowest/highest annual salaries, separately per currency.
+Salary analysis provides paginated role comparisons, high-salary outlier review
+lists and employees below their department/currency average. It reuses the same
+HR authorization and confirmed salary-edit workflow. Outlier cohorts share role,
+country and currency and contain at least five employees; see the P0 contract
+for the quartile/IQR rule and the zero-IQR fallback. These reports are indicators
+for investigation, not conclusions about unfair pay. No new migration or seed
+run is required for these reporting changes.
+
+## Salary Data Quality
+
+The authenticated **Data quality** view runs manual salary checks and stores
+findings for HR review. It never changes employee records or salaries. Checks
+cover active employees with zero pay, extreme same-country/role/currency peer
+ratios, possible annual/monthly unit mistakes, large salary changes, currency
+switches with an unchanged amount, dates over a year ahead, salary-history
+mismatches and blank required employee details. Flags are review indicators,
+not proof of a data error or unfair pay.
+
+Apply the new review-table migration with `bin/rails db:migrate` before using
+this view. On Render the existing migration-enabled build script applies it;
+no new seed or environment variable is required. After deployment, sign in and
+choose **Data quality > Run checks**. Checks run synchronously in 500-employee
+batches with one grouped peer-statistics query and batched latest-history reads.
+There is no automatic scheduled scan.
+
+HR can mark a finding Pending, Investigating, Confirmed error or Legitimate.
+Confirmed error and Legitimate require notes. Every decision records its author
+and time in a read-only audit trail. Rechecking unchanged records preserves
+decisions and does not duplicate findings. Changed findings need a fresh review;
+corrected ones become Cleared on the next scan, retaining their history. The
+queue defaults to active Pending findings; decision/currency/employee filters,
+pagination and **Include cleared** are available. Scan counts cover all employees,
+not only the filtered queue. Results are as of the last completed check.
 
 For an optional development-only dataset of 32 employees, run from `Backend/`:
 
@@ -220,11 +283,15 @@ npm run build
 npm test
 ```
 
-The Playwright suite includes five API-client configuration tests and fifteen
-desktop Chrome tests covering HR login, logout, session expiry, employee creation,
+The Playwright suite includes 43 tests: five API-client configuration tests and
+38 desktop browser tests covering HR login, logout, session expiry, employee creation,
 required-field and duplicate-ID validation, pagination,
 search and filters, salary sorting, confirmed salary updates and history,
-currency-specific compensation, error recovery, and appearance settings.
+currency-specific compensation, monthly estimates, salary ranges, role comparisons,
+outlier review and below-average reports, salary data-quality scans and HR reviews,
+error recovery, and appearance settings.
+Five browser tests exercise the backend's actual theme script in an isolated
+HTML fixture, including native appearance, persistence, blocked storage and cross-tab updates.
 Browser tests intercept API calls; Rails specs verify the API behavior.
 Mobile testing is deferred. Local macOS tests use installed Google Chrome;
 Linux CI installs Playwright Chromium. To install it manually on Linux:
@@ -269,6 +336,8 @@ Spec paths below are relative to `Backend/`.
 | Salary management with confirmation | `spec/requests/salaries_spec.rb`, `spec/services/salary_updater_spec.rb` |
 | Salary history and traceability | `spec/models/salary_change_spec.rb`, `spec/requests/salaries_spec.rb` |
 | Compensation insights | `spec/services/compensation_insights_spec.rb`, `spec/requests/compensation_insights_spec.rb` |
+| Salary analysis | `spec/services/salary_analysis_spec.rb`, `spec/requests/salary_analysis_spec.rb` |
+| Salary data-quality review | `spec/services/salary_data_quality_spec.rb`, `spec/requests/salary_data_quality_spec.rb`, `spec/models/salary_data_anomaly_spec.rb` |
 | Multi-currency totals | Employee, salary history and compensation specs |
 | Data validation | Employee and salary history model specs, directory and salary request specs |
 

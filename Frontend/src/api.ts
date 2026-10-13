@@ -37,11 +37,21 @@ export interface SalaryChange {
   changed_at: string;
 }
 
+export interface SalaryBand {
+  lower_bound: string;
+  upper_bound: string | null;
+  headcount: number;
+}
+
 export interface Metrics {
   headcount: number;
   total_base_salary: string;
+  monthly_payroll_estimate: string;
   average_base_salary: string;
   median_base_salary: string;
+  minimum_base_salary: string;
+  maximum_base_salary: string;
+  salary_bands: SalaryBand[];
 }
 
 export interface CurrencyMetrics extends Metrics {
@@ -51,6 +61,7 @@ export interface CurrencyMetrics extends Metrics {
 
 export interface Insights {
   headcount: number;
+  country_headcounts: Record<string, number>;
   currencies: Record<string, CurrencyMetrics>;
 }
 
@@ -60,7 +71,44 @@ export interface Directory {
   meta: { page: number; per_page: number; total_count: number; total_pages: number };
 }
 
+export type AnalysisReport = 'roles' | 'outliers' | 'below_department_average';
+export interface RoleComparison {
+  country: string; designation: string; currency: string; headcount: number;
+  average_base_salary: string; median_base_salary: string;
+  minimum_base_salary: string; maximum_base_salary: string; salary_gap: string;
+}
+export interface SalaryReviewEmployee extends Employee {
+  comparison_headcount: number; comparison_average: string;
+  comparison_threshold?: string; salary_difference: string;
+}
+export interface SalaryAnalysisResponse {
+  data: (RoleComparison | SalaryReviewEmployee)[];
+  meta: Directory['meta'] & { report: AnalysisReport; minimum_peer_count?: number | null };
+}
+
 type Query = Record<string, string | number | undefined>;
+
+export type ReviewStatus = 'pending' | 'investigating' | 'confirmed_error' | 'legitimate';
+export interface DataQualityScan {
+  id: number; checked_employees: number; detected_findings: number; new_findings: number;
+  affected_employees: number; cleared_findings: number; started_at: string; completed_at: string;
+}
+export interface SalaryDataAnomaly {
+  id: number; employee: Employee; rule_code: string; rule_name: string; severity: 'warning' | 'info';
+  snapshot: Record<string, unknown>; observed: Record<string, unknown>; reference: Record<string, unknown>;
+  active: boolean; source_stale: boolean; review_status: ReviewStatus; review_notes: string | null;
+  reviewed_by: { id: number; name: string } | null; reviewed_at: string | null;
+  first_detected_at: string; last_checked_at: string; cleared_at: string | null;
+}
+export interface AnomalyDirectory {
+  data: SalaryDataAnomaly[];
+  meta: Directory['meta'] & { last_scan: DataQualityScan | null };
+}
+export interface AnomalyDetails {
+  data: SalaryDataAnomaly;
+  reviews: { data: { id: number; status: ReviewStatus; notes: string | null; reviewed_at: string;
+    reviewed_by: { id: number; name: string } }[]; meta: Directory['meta'] };
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const apiBaseUrl = (API_BASE_URL?.trim() || '/api/v1').replace(/\/+$/, '');
@@ -110,6 +158,13 @@ export const api = {
   }),
   employees: (params: Query, signal?: AbortSignal) => request<Directory>(`/employees?${queryString(params)}`, { signal }),
   insights: (params: Query = {}, signal?: AbortSignal) => request<{ data: Insights }>(`/compensation_insights?${queryString(params)}`, { signal }),
+  salaryAnalysis: (params: Query, signal?: AbortSignal) => request<SalaryAnalysisResponse>(`/salary_analysis?${queryString(params)}`, { signal }),
+  dataAnomalies: (params: Query, signal?: AbortSignal) => request<AnomalyDirectory>(`/salary_data_anomalies?${queryString(params)}`, { signal }),
+  dataAnomaly: (id: number, params: Query = {}, signal?: AbortSignal) => request<AnomalyDetails>(`/salary_data_anomalies/${id}?${queryString(params)}`, { signal }),
+  runSalaryChecks: () => request<{ data: DataQualityScan }>('/salary_data_quality_scans', { method: 'POST' }),
+  reviewDataAnomaly: (id: number, status: ReviewStatus, notes: string) => request<{ data: SalaryDataAnomaly }>(`/salary_data_anomalies/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ review: { status, notes } }),
+  }),
   history: (id: number, signal?: AbortSignal) => request<{ data: SalaryChange[] }>(`/employees/${id}/salary_history`, { signal }),
   updateSalary: (id: number, salary: { base_salary: string; currency: string; effective_date: string; confirmed: true }) =>
     request<{ data: Pick<Employee, 'base_salary' | 'currency' | 'effective_date'> }>(`/employees/${id}/salary`, {

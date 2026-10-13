@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Employee Portal - Planning &amp; Design Notes</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: #253744; font: 12px/1.5 Arial, Helvetica, sans-serif; letter-spacing: 0; }
+.page { width: 210mm; height: 297mm; padding: 14mm 16mm 12mm; display: flex; flex-direction: column; break-after: page; }
+.page:last-child { break-after: auto; }
+header { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #287864; padding-bottom: 10px; margin-bottom: 22px; color: #607482; font-size: 10px; }
+header strong { color: #253744; }
+h1 { margin: 0 0 15px; font-size: 30px; line-height: 1.2; }
+h2 { margin: 0 0 12px; font-size: 22px; line-height: 1.3; }
+h3 { margin: 17px 0 8px; font-size: 13px; }
+p { margin: 0 0 12px; }
+.lead { font-size: 14px; line-height: 1.6; }
+.eyebrow { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #287864; margin-bottom: 10px; }
+.muted { color: #607482; }
+.small { font-size: 10.5px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; line-height: 1.45; margin: 9px 0 14px; }
+th { background: #eaf3ef; color: #315d50; font-size: 10px; font-weight: bold; padding: 8px; text-align: left; }
+td { border-bottom: 1px solid #dce5e9; padding: 8px; vertical-align: top; }
+tr { break-inside: avoid; }
+.compact td { padding: 6px 8px; }
+.label { width: 150px; font-weight: bold; }
+code { font: 10px/1.5 Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+ul, ol { margin: 0 0 12px; padding-left: 20px; }
+li { margin-bottom: 7px; }
+.callout { border-left: 3px solid #287864; background: #f0f6f3; margin: 14px 0; padding: 12px 15px; }
+.callout p:last-child { margin-bottom: 0; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 19px 0; border-top: 1px solid #dce5e9; border-bottom: 1px solid #dce5e9; margin: 20px 0; font-size: 11px; }
+.stats strong { display: block; font-size: 28px; color: #287864; margin-bottom: 3px; }
+.diagram { width: 100%; height: 275px; margin: 8px 0 16px; }
+.implemented { color: #267259; font-weight: bold; }
+.proposed { color: #906012; font-weight: bold; }
+a { color: #286c59; }
+footer { margin-top: auto; padding-top: 10px; border-top: 1px solid #dce5e9; display: flex; justify-content: space-between; gap: 20px; font-size: 9px; color: #607482; }
+</style>
+</head>
+<body>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Planning &amp; Design Notes | 13 October 2026</span></header>
+  <div class="eyebrow">Product and engineering reference</div>
+  <h1>Planning &amp;<br>Design Notes</h1>
+  <p class="lead">A desktop-first HR workspace for employee records, annual base salaries, compensation insights and traceable salary reviews.</p>
+  <div class="stats"><div><strong>21 / 29</strong>Reporting features completed</div><div><strong>7</strong>Application database tables</div><div><strong>10,000</strong>Synthetic employee seed capacity</div></div>
+  <h3>Purpose</h3>
+  <p>Replace scattered compensation spreadsheets with a searchable directory, validated salary updates, immutable application-level history and currency-specific summaries. Give HR useful review indicators without automatically deciding that a salary is wrong or unfair.</p>
+  <h3>Audience and Permissions</h3>
+  <p>The current persona is one seeded HR superadmin. This user can view dashboards, create employees, update salaries with confirmation, read salary history and investigate data-quality findings. There is no employee self-service, public registration or separate read-only HR role.</p>
+  <h3>Current Engineering Checkpoint</h3>
+  <table><tbody>
+    <tr><td class="label">Stack</td><td>Ruby 3.4.9, Rails 8.1.4, PostgreSQL, React 19, TypeScript and Vite.</td></tr>
+    <tr><td class="label">Latest recorded checks</td><td>358 Rails specs and 43 frontend tests passed; frontend production build, Ruby lint and Brakeman scan passed in prior local verification.</td></tr>
+    <tr><td class="label">Schema snapshot</td><td>Version <code>20261013000004</code>; 72 columns, eight foreign keys and 19 secondary indexes.</td></tr>
+    <tr><td class="label">Release state</td><td>Latest committed checkpoint is <code>88c4571</code>, single-HR authentication. Reporting, data-quality and status-page enhancements remain local and uncommitted at this snapshot.</td></tr>
+  </tbody></table>
+  <div class="callout"><p><strong>Reading this document:</strong> implemented behavior describes the current repository, not proof of deployment. Proposed work is explicitly labelled. Test counts are the latest recorded local results, not a new test run for this document.</p></div>
+  <p class="small muted">No credentials, tokens, private employee records or production database contents are included. Completion uses the agreed currency-specific scope; it is not a legal, pay-fairness or production-performance certification.</p>
+  <footer><span>Scope, decisions, workflows and release planning</span><span>1 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Product Scope and Acceptance</span></header>
+  <h2>Scope and Success Criteria</h2>
+  <p>The original feature list contains 30 items. The common-currency India/US comparison is excluded, leaving 29 tracked items. Normalized salary averages are replaced by per-currency averages in the agreed scope.</p>
+  <table><thead><tr><th>Area</th><th>Delivered Behavior</th><th>Acceptance Focus</th></tr></thead><tbody>
+    <tr><td class="label">Employee directory</td><td>Search name/ID; combined country, department and status filters; salary sorting; server pagination.</td><td>Accurate counts, stable order, bounded pages and no accidental currency conversion.</td></tr>
+    <tr><td class="label">Employee creation</td><td>Validated identity, role, geography, status and initial compensation.</td><td>Reject duplicate IDs and invalid details; show the new employee and refresh summaries.</td></tr>
+    <tr><td class="label">Salary management</td><td>Current salary details, edit/review/confirm flow and old/new history.</td><td>No write before explicit confirmation; salary and history succeed or fail together.</td></tr>
+    <tr><td class="label">Organization insights</td><td>Headcount, annual/monthly estimates, average, median, ranges, country/department rankings and salary bands.</td><td>Exact backend calculations, currency-separated money and reconciled headcounts.</td></tr>
+    <tr><td class="label">Salary analysis</td><td>Comparable role groups, high-salary outliers and below-department-average lists.</td><td>Full filtered cohort before pagination; transparent peer thresholds.</td></tr>
+    <tr><td class="label">Data quality</td><td>Eight manual checks, saved evidence, HR decisions, audit history and rescans.</td><td>No automatic salary correction; decisions persist; changed sources require review again.</td></tr>
+    <tr><td class="label">Access and status</td><td>Single-HR login, logout and expiry; public status page with light/black theme and portal link.</td><td>No protected data before session verification; no API endpoint list on the public page.</td></tr>
+  </tbody></table>
+  <h3>Current Completion</h3>
+  <p><strong>21 completed, eight not fully completed (about 72%).</strong> Within the adjusted scope, 17 P0 items and four P1 items are implemented. Two P1 areas are partial; six P2 features remain unimplemented. The feature-coverage PDF contains item-by-item traceability.</p>
+  <h3>Deliberate Boundaries</h3>
+  <ul><li>Desktop web testing only for now; mobile validation is deferred.</li><li>No FX conversion, payroll execution, tax/benefit calculation, bonus accounting or future salary scheduling.</li><li>Country/role fairness with contextual evidence is deferred by request. No seniority, experience, hours or performance fields were added.</li><li>History is an audit trail, not a salary-history editing surface. Statistical flags do not establish unfair pay.</li></ul>
+  <footer><span>Implemented scope versus explicit exclusions</span><span>2 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Architecture and Ownership</span></header>
+  <h2>Architecture Design</h2>
+  <svg class="diagram" viewBox="0 0 900 340" role="img" aria-labelledby="architecture-title">
+    <title id="architecture-title">React frontend, Rails API and PostgreSQL architecture</title>
+    <defs><marker id="arrow" markerWidth="9" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0 0 L9 4 L0 8 Z" fill="#536b7c"/></marker></defs>
+    <rect x="10" y="45" width="260" height="215" rx="6" fill="#edf0fa" stroke="#aebfce"/>
+    <rect x="320" y="45" width="260" height="215" rx="6" fill="#eaf4ee" stroke="#aebfce"/>
+    <rect x="630" y="45" width="260" height="215" rx="6" fill="#fff3e3" stroke="#aebfce"/>
+    <g font-family="Arial,sans-serif" fill="#253744"><g font-size="22" font-weight="bold"><text x="30" y="82">React / Vite</text><text x="340" y="82">Rails API</text><text x="650" y="82">PostgreSQL</text></g>
+      <g font-size="17"><text x="30" y="120">Desktop HR workspace</text><text x="30" y="153">Forms and review drawers</text><text x="30" y="186">Session gate / API client</text><text x="30" y="219">Static frontend build</text>
+      <text x="340" y="120">Auth and controllers</text><text x="340" y="153">Domain service objects</text><text x="340" y="186">Validation / serializers</text><text x="340" y="219">Puma web process</text>
+      <text x="650" y="120">Current employee pay</text><text x="650" y="153">Salary / review history</text><text x="650" y="186">Users / token digests</text><text x="650" y="219">Constraints and indexes</text></g></g>
+    <path d="M270 145 H320" stroke="#536b7c" stroke-width="3" marker-end="url(#arrow)"/><path d="M580 145 H630" stroke="#536b7c" stroke-width="3" marker-end="url(#arrow)"/>
+    <text x="280" y="25" font-family="Arial,sans-serif" font-size="16" fill="#536b7c">HTTPS JSON / bearer session</text>
+    <text x="105" y="304" font-family="Arial,sans-serif" font-size="17" fill="#536b7c">Restricted browser CORS between frontend and backend; SQL stays server-side.</text>
+  </svg>
+  <table><thead><tr><th>Boundary</th><th>Responsibilities</th></tr></thead><tbody>
+    <tr><td class="label"><code>Frontend/</code></td><td>AuthGate, API client, directory, insights, salary analysis, history and data-quality views. UI preferences are local; the API remains authoritative.</td></tr>
+    <tr><td class="label"><code>Backend/</code></td><td>JSON API under <code>/api/v1</code>. Controllers handle auth, parameters and HTTP responses; models enforce record rules; services own updates and reporting.</td></tr>
+    <tr><td class="label">Domain services</td><td>EmployeeDirectory, SalaryUpdater, CompensationInsights, SalaryAnalysis, SalaryDataQualityChecker/Rules and SalaryDataAnomalyReviewer.</td></tr>
+    <tr><td class="label">Database</td><td>Seven primary application tables. PostgreSQL performs aggregates and cohort calculations, enforces integrity and supports transactional locks.</td></tr>
+  </tbody></table>
+  <h3>Design Rationale</h3>
+  <ul><li>Keep the browser focused on interaction, not duplicating backend financial or review rules.</li><li>Use service objects for atomic writes and complex reads without introducing a separate service or distributed transaction.</li><li>Separate static frontend and API deployments; retain one repository and independent CI checks for each.</li><li>Keep the public Rails root separate from the HR application. It reports liveness, not database readiness, and contains no endpoint documentation.</li></ul>
+  <footer><span>One repository, separate frontend/API runtime boundaries</span><span>3 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>HR Journeys and Interaction Design</span></header>
+  <h2>Workflows and UI Notes</h2>
+  <h3>Navigation and Information Hierarchy</h3>
+  <p>The signed-in workspace exposes Overview, Employees, Compensation, Salary history, Salary analysis and Data quality. Tables prioritize scanning and comparison. Search, filters, currency selectors, pagination and focused drawers keep the primary work in context.</p>
+  <table><thead><tr><th>Journey</th><th>Interaction Sequence</th><th>Protection / Outcome</th></tr></thead><tbody>
+    <tr><td class="label">Sign in</td><td>Email/password submission; issue session; verify saved sessions before restoring the workspace.</td><td>Invalid credentials show an error; no employee requests while signed out or unverified.</td></tr>
+    <tr><td class="label">Find an employee</td><td>Search name or business ID; combine filters; sort salary; move through pages; open employee details.</td><td>Server-side matching and bounded result pages; deterministic ordering.</td></tr>
+    <tr><td class="label">Create employee</td><td>Open New employee; enter required identity and salary fields; submit; inspect validation feedback.</td><td>Duplicate-ID errors preserve the draft. Success searches for the created ID and refreshes insights.</td></tr>
+    <tr><td class="label">Change salary</td><td>Open salary drawer; edit amount/currency/date; review old/new values; explicitly confirm.</td><td>Validated atomic write; append history; close drawer and refresh relevant views.</td></tr>
+    <tr><td class="label">Review a flag</td><td>Run checks; inspect observed/reference values and snapshot; choose decision; supply notes; save.</td><td>Stale sources reject review. Open employee salary for correction, then rescan to clear the flag.</td></tr>
+    <tr><td class="label">Sign out / expire</td><td>Revoke the current session or handle expiry/401; clear browser session and protected workspace.</td><td>Salary data is no longer visible; sign-in is required again.</td></tr>
+  </tbody></table>
+  <h3>Implemented Interaction States</h3>
+  <ul><li>Loading, empty, validation-error, unavailable and retry states; disabled controls during writes.</li><li>Salary confirmation separate from editing; feedback after saves; filters and page counts remain visible.</li><li>Abortable reads and response keys avoid displaying an earlier report under a new mode/filter.</li><li>Dialog focus handling, Escape dismissal, labelled controls and icon tooltips. Drawers switch rather than nest when opening employee salary from a finding.</li><li>Workspace dark/light/system preferences; public backend page follows native appearance until an explicit light/black preference is saved.</li></ul>
+  <h3>Proposed Usability Validation</h3>
+  <p>Observe HR completing real tasks, check terminology and currency labels, audit keyboard/screen-reader behavior and verify long names/large values. Current browser tests are not a complete accessibility audit. Mobile acceptance remains outside the current test plan.</p>
+  <footer><span>Task-focused desktop workspace, explicit confirmation and feedback</span><span>4 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Database and Domain Design</span></header>
+  <h2>Data Model Decisions</h2>
+  <table><thead><tr><th>Table</th><th>Purpose and Important Relationships</th></tr></thead><tbody>
+    <tr><td><code>employees</code></td><td>Current directory and annual compensation. Unique string business employee_id; numeric primary id for API lookups and foreign keys.</td></tr>
+    <tr><td><code>salary_changes</code></td><td>Old/new amounts, currencies, effective dates and change timestamp; belongs to an employee.</td></tr>
+    <tr><td><code>users</code></td><td>HR credentials and activity status. Separate from employee payroll records; no user-to-employee link is implemented.</td></tr>
+    <tr><td><code>sessions</code></td><td>Token digest and expiry; belongs to an HR user.</td></tr>
+    <tr><td><code>salary_data_quality_scans</code></td><td>Run timing, requesting user and summary counters.</td></tr>
+    <tr><td><code>salary_data_anomalies</code></td><td>Fingerprint, rule, severity and JSONB evidence; employee and latest detecting scan; optional latest reviewer.</td></tr>
+    <tr><td><code>salary_data_anomaly_reviews</code></td><td>Decision, notes, author and time; belongs to a finding and HR user.</td></tr>
+  </tbody></table>
+  <h3>Identity, Precision and Integrity</h3>
+  <ul><li>Seven bigint primary keys, eight foreign keys, 19 secondary indexes and nine CHECK constraints. Four secondary indexes are unique.</li><li><code>employees.employee_id</code> is a business string, while salary/finding <code>employee_id</code> references <code>employees.id</code>. Do not interchange these identifiers.</li><li>Salary columns use <code>numeric(18,2)</code>. API amounts are fixed two-decimal strings; server calculations round only reported values.</li><li>Database constraints enforce supported currencies, employee status, nonnegative pay, review statuses and superadmin role. Required strings also receive Rails nonblank validation.</li><li>Country, department and designation are strings, not normalized reference tables. JSONB evidence is required, but its shape is enforced by application construction rather than a SQL JSON schema.</li></ul>
+  <h3>History and Deletion Policy</h3>
+  <p>Salary changes and review events are read-only once persisted through Rails. This is not a database-level immutable ledger: direct SQL can bypass the guard. Foreign keys do not cascade-delete audit records. Model associations restrict deleting employees/findings with history. Salary history does not currently store the editing HR user's ID.</p>
+  <h3>Supporting Reference</h3>
+  <p><a href="EmployeePortal-Database-Schema.pdf">EmployeePortal-Database-Schema.pdf</a> contains the ERD and every column, default, index and constraint. Its JSON/SVG/Mermaid sources are stored alongside this document. The schema describes local development; production migration state must be checked separately.</p>
+  <footer><span>Schema version 20261013000004 | Structure, not employee data</span><span>5 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>API Contracts and Write Semantics</span></header>
+  <h2>API Design Notes</h2>
+  <p>JSON resources are grouped under <code>/api/v1</code>. Protected operations require an active HR superadmin bearer session and use <code>Cache-Control: no-store</code>. This internal document is not served on the public backend status page.</p>
+  <table class="compact"><thead><tr><th>Operation</th><th>Contract / Purpose</th></tr></thead><tbody>
+    <tr><td><code>POST /session</code><br><code>GET / DELETE /session</code></td><td>Login accepts a session email/password object. Return/verify the user and expiry; revoke the current session on logout.</td></tr>
+    <tr><td><code>GET /employees</code><br><code>POST /employees</code></td><td>Paginated search/filter/sort; validated employee creation. Collection reads return data plus page/count metadata.</td></tr>
+    <tr><td><code>GET /employees/:id</code></td><td>Read identity and compensation using numeric database ID.</td></tr>
+    <tr><td><code>GET /employees/:id/salary</code><br><code>PATCH / PUT</code> same path</td><td>Read or update base_salary, currency and effective_date. Updates require <code>confirmed: true</code> in the salary object.</td></tr>
+    <tr><td><code>GET /employees/:id/salary_history</code></td><td>Read old/new compensation and change timestamps; no history-edit endpoint.</td></tr>
+    <tr><td><code>GET /compensation_insights</code><br><code>GET /salary_analysis</code></td><td>Currency-separated summaries and paginated reports selected by report parameter.</td></tr>
+    <tr><td><code>POST /salary_data_quality_scans</code></td><td>Run synchronous manual checks across the database; return completed scan counters.</td></tr>
+    <tr><td><code>GET /salary_data_anomalies</code><br><code>GET / PATCH / PUT /salary_data_anomalies/:id</code></td><td>Filtered queue, evidence and paginated review history; append HR decisions without writing salaries.</td></tr>
+  </tbody></table>
+  <p class="small muted">All paths in the table are relative to /api/v1. Nested salary routes use employee_id as the route parameter name, but its value is still the numeric employees.id.</p>
+  <h3>Query and Error Rules</h3>
+  <p>Country, department and status combine; directory search uses case-insensitive name/business-ID matching. Directory and analysis pagination defaults to page 1 / 25 rows, capped at 100; positive integers are required. Stable ties use employee ID or the report's group names.</p>
+  <p>Typical status codes: <code>200</code> read/update; <code>201</code> login/create/scan; <code>204</code> logout; <code>400</code> malformed required object; <code>401</code> invalid session; <code>403</code> wrong role; <code>404</code> unknown record; <code>409</code> stale finding review; <code>422</code> validation; <code>429</code> login limit.</p>
+  <h3>Salary Transaction Boundary</h3>
+  <p>SalaryUpdater locks the employee, captures existing values, validates the requested values, saves only when changed, then writes history within the same transaction. Failed validation/history insertion rolls back the update. Identical values create no change row. A future effective date is stored immediately; there is no deferred activation scheduler.</p>
+  <footer><span>Full request/response definitions: Backend/docs/p0_contract.md</span><span>6 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Compensation and Analysis Definitions</span></header>
+  <h2>Reporting Design and Boundaries</h2>
+  <table><thead><tr><th>Metric / Report</th><th>Definition</th><th>Boundary</th></tr></thead><tbody>
+    <tr><td class="label">Annual expenditure</td><td>Sum of current stored annual base salary per currency.</td><td>No cross-currency total; not a historical payroll ledger.</td></tr>
+    <tr><td class="label">Monthly estimate</td><td>Annual base total divided by 12 before rounding.</td><td>No tax, benefit, bonus, prorating or scheduled payroll treatment.</td></tr>
+    <tr><td class="label">Average / median</td><td>Arithmetic average; median averages the middle values when headcount is even.</td><td>Decimal server calculations; zero salary participates.</td></tr>
+    <tr><td class="label">Ranges / bands</td><td>Minimum/maximum; four fixed salary ranges with inclusive lower and exclusive upper bounds.</td><td>Reporting bands are currency-specific, not pay policy.</td></tr>
+    <tr><td class="label">Rankings / counts</td><td>Country/department totals or averages within a currency; consolidated country headcount across currencies.</td><td>Money stays separate even when headcounts are combined.</td></tr>
+    <tr><td class="label">Role comparisons</td><td>Same country, designation and currency; count, average, median, range and salary gap.</td><td>No experience, seniority, working-hour or performance adjustment.</td></tr>
+    <tr><td class="label">High-salary outliers</td><td>At least five peers including the employee; salary strictly above Q3 + 1.5 x IQR using discrete quartiles.</td><td>If Q1 = Q3, threshold is 1.5 x Q3. A flag is not a finding of unfair pay.</td></tr>
+    <tr><td class="label">Below average</td><td>Salary strictly below the unrounded department/currency average.</td><td>No automatic raise recommendation or fairness conclusion.</td></tr>
+  </tbody></table>
+  <h3>Currency and Salary-Band Policy</h3>
+  <p>Supported currencies: INR, USD, GBP, EUR and JPY. Band boundaries are INR 500,000 / 1,000,000 / 2,000,000; USD, GBP and EUR 50,000 / 100,000 / 150,000; JPY 3,000,000 / 6,000,000 / 9,000,000. Zero-count bands remain visible and the last band is open-ended.</p>
+  <h3>Scope Before Pagination</h3>
+  <p>Insight filters apply to every statistic. Salary-analysis filters define the entire comparison population before paging employee/group results. Default scopes include active and inactive employees; choose active explicitly when estimating active-staff base pay.</p>
+  <h3>Query Design</h3>
+  <p>CompensationInsights uses PostgreSQL grouping sets and filtered band counts rather than loading every employee into Ruby. SalaryAnalysis computes cohort statistics in SQL and loads only a requested page. Rankings in the UI use the returned currency-specific aggregates.</p>
+  <div class="callout"><p><strong>Interpretation:</strong> currency-specific reports deliberately avoid fabricated FX conversion. Current salary plus history is not enough to reconstruct certified year-over-year payroll expenditure without additional rules for employee populations and timing.</p></div>
+  <footer><span>Transparent definitions, not payroll execution or fairness adjudication</span><span>7 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Salary Data-Quality Design</span></header>
+  <h2>Checks and Review Lifecycle</h2>
+  <table class="compact"><thead><tr><th>Check</th><th>Implemented Trigger</th></tr></thead><tbody>
+    <tr><td class="label">Active zero pay</td><td>Active employee with base_salary = 0. Inactive zero pay is not flagged by this rule.</td></tr>
+    <tr><td class="label">Extreme peer ratio</td><td>Positive salary at least 10 x, or at most 0.1 x, positive median; same country/role/currency; minimum five employees.</td></tr>
+    <tr><td class="label">Annual/monthly pattern</td><td>Latest same-currency change near 12 x or 1/12 x a positive old salary, within 2% tolerance.</td></tr>
+    <tr><td class="label">Large salary change</td><td>Latest same-currency change increases at least fivefold or falls at least 80%; annual/monthly pattern takes precedence.</td></tr>
+    <tr><td class="label">Same amount, new currency</td><td>Currency switched while an identical positive numeric amount remained; information flag, not assumed conversion error.</td></tr>
+    <tr><td class="label">Distant future date</td><td>Current effective date more than 365 days after scan date; shorter future dates remain valid.</td></tr>
+    <tr><td class="label">History mismatch</td><td>Current amount/currency/effective date differs from latest history, ordered by changed_at then ID descending.</td></tr>
+    <tr><td class="label">Blank details</td><td>Blank business ID, name, department, country or designation, potentially after an import bypassing Rails validation.</td></tr>
+  </tbody></table>
+  <h3>Scan Design</h3>
+  <p>Manual synchronous scan, 500 employees per batch, one grouped peer-statistics query and a lateral latest-history lookup. A PostgreSQL transaction advisory lock serializes full scans. Scan and findings roll back on failure. Fingerprints reuse unchanged evidence and preserve prior decisions.</p>
+  <h3>Decision State Is Separate From Finding Activity</h3>
+  <p>Pending, Investigating, Confirmed error and Legitimate are HR decisions. Active/Cleared is detection state. Confirmed error and Legitimate require notes, capped at 2,000 characters. Every saved decision appends reviewer/time history and updates the finding's latest decision.</p>
+  <p>Source changes or cleared findings reject review with 409 after locked revalidation. A rescan clears superseded/no-longer-detected evidence without deleting its reviews. Changed evidence creates a new Pending finding. Corrections use the normal confirmed salary-update flow; scans never edit salaries.</p>
+  <h3>Review Queue and Limits</h3>
+  <p>Default UI is active Pending findings. Currency/employee/decision filters, pagination and Include cleared are available. Filters narrow the queue, not scan baselines; peers include active and inactive employees. Counters cover all employees and results are as of the last check, not continuous monitoring.</p>
+  <footer><span>No automatic correction, scheduled scan or contextual fairness inference</span><span>8 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Security and Privacy Design</span></header>
+  <h2>Access and Protection Notes</h2>
+  <table><thead><tr><th>Implemented Control</th><th>Design / Limit</th></tr></thead><tbody>
+    <tr><td class="label">Authentication</td><td>Bcrypt password hashes, active-user checks and opaque random bearer tokens. PostgreSQL stores SHA-256 token digests, not raw tokens.</td></tr>
+    <tr><td class="label">Session lifecycle</td><td>Eight-hour sessions; logout revokes the current token; password/activity changes revoke user sessions. Browser verifies a saved session before showing protected views.</td></tr>
+    <tr><td class="label">Browser storage</td><td>Per-tab sessionStorage, with in-memory fallback. This limits persistence but is still accessible to same-origin JavaScript; it is not an HttpOnly cookie.</td></tr>
+    <tr><td class="label">Authorization</td><td>Only the superadmin role is supported; server-side checks protect employee, insight and review routes. Hiding a button or route list is not authorization.</td></tr>
+    <tr><td class="label">Abuse resistance</td><td>Login allows 10 attempts per IP per three minutes through a process-local MemoryStore. This is not a shared global limit across multiple Rails processes.</td></tr>
+    <tr><td class="label">Browser origin policy</td><td>Restricted frontend origin for /api/* and explicit methods including OPTIONS. CORS permits a browser origin; it does not authenticate an API caller.</td></tr>
+    <tr><td class="label">Public backend page</td><td>Application liveness, time and portal link only; no route list/version/base path. CSP restricts scripts to self and prevents framing; no employee queries for status.</td></tr>
+    <tr><td class="label">Secret handling</td><td>Backend environment for Rails key, DB connection and HR provisioning password; parameter-log filtering. No credentials in VITE_ values, screenshots or PDFs.</td></tr>
+  </tbody></table>
+  <h3>Proposed Production Hardening</h3>
+  <ul><li>Review frontend CSP and dependencies, and avoid untrusted scripts because browser bearer storage remains vulnerable to same-origin script compromise.</li><li>Use a shared login-rate-limit store before scaling to multiple processes; assess MFA or managed identity before adding broader access.</li><li>Rotate any exposed secrets; apply least-privilege database access; define backup/restore, retention and salary-data incident procedures.</li><li>Consider database-level audit protections and adding the salary-changing actor if stronger traceability is required.</li></ul>
+  <p class="small muted">No claim is made that an independent penetration test, comprehensive security audit or production readiness certification has been completed.</p>
+  <footer><span>Confidential HR data requires explicit server-side access control</span><span>9 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Quality, Performance and Verification</span></header>
+  <h2>Testing and Nonfunctional Plan</h2>
+  <table><thead><tr><th>Existing Verification</th><th>Coverage / Boundary</th></tr></thead><tbody>
+    <tr><td class="label">358 Rails examples</td><td>Model constraints, API behavior, auth, financial calculations, atomic salary/history writes, seed idempotency, anomaly lifecycle and deployment script.</td></tr>
+    <tr><td class="label">43 frontend tests</td><td>Five API-client tests and 38 desktop browser tests, including five backend-theme fixtures. Workflow tests intercept API responses.</td></tr>
+    <tr><td class="label">10,000-record checks</td><td>Seed generation and bounded anomaly batches tested; real local workspace contains 10,032 employees. No production load guarantee is implied.</td></tr>
+    <tr><td class="label">Build and CI</td><td>TypeScript/Vite build, RuboCop, Brakeman, gem audit job, Rails specs against PostgreSQL 16, and Linux Chromium browser checks.</td></tr>
+    <tr><td class="label">Local smoke checks</td><td>Real Rails/UI data, desktop widths 1280/1440/1920 and health/theme behavior. One real local scan checked 10,032 employees in about 339 ms.</td></tr>
+  </tbody></table>
+  <h3>Performance Decisions Already Implemented</h3>
+  <ul><li>Server pagination with a 100-row API cap and indexed salary/filter/foreign-key paths; 300 ms debounced directory search.</li><li>SQL aggregation for insights and peers; latest history loaded in batched queries, not per employee.</li><li>Explicit manual scans and disabled duplicate actions in the UI. Scans still run inside a web request and may become expensive on larger data.</li></ul>
+  <h3>Proposed Acceptance Before a Production Release</h3>
+  <ol><li>Run the full test/build/security pipeline on the exact release commit and add a real staging login-to-salary-change-to-history flow.</li><li>Benchmark warm and cold start behavior, p50/p95 response times, concurrent browsing/writes and scans on deployment-sized hardware. Agree response-time targets from those results.</li><li>Profile indexed queries and ILIKE search before adding indexes or caching. Introduce a background scan with progress only if request timeouts/resource pressure warrant it.</li><li>Test failed migrations, backups/restores, network interruption and stale concurrent salary editing; verify accessibility and long-content layout.</li></ol>
+  <div class="callout"><p><strong>Precision risk to address:</strong> backend amounts retain decimals as strings, but the UI money formatter currently converts them to JavaScript Number. Very large values near the database's numeric limit may lose cents in display; add a safe display-range rule or decimal-aware formatting before using such values.</p></div>
+  <footer><span>Recorded local evidence is separate from staging and production acceptance</span><span>10 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Deployment and Release Checklist</span></header>
+  <h2>Deployment Design Notes</h2>
+  <p>This describes repository configuration and a proposed release procedure, not a fresh verification of hosting-provider settings or current live deployment.</p>
+  <table class="compact"><thead><tr><th>Component</th><th>Repository Configuration</th></tr></thead><tbody>
+    <tr><td class="label">Rails on Render</td><td>Root Backend; build <code>./bin/render-build.sh</code>; start Puma with config/puma.rb bound to 0.0.0.0:$PORT; liveness path /up.</td></tr>
+    <tr><td class="label">PostgreSQL</td><td>Production primary uses DATABASE_URL. The configuration also declares cache/queue/cable databases; deployment script explicitly migrates primary.</td></tr>
+    <tr><td class="label">Frontend static build</td><td>Frontend root, npm ci / npm run build; serve dist. VITE_API_BASE_URL includes the backend /api/v1 prefix and is embedded at build time.</td></tr>
+    <tr><td class="label">Backend secrets</td><td>RAILS_ENV=production, configured Ruby version, DATABASE_URL and RAILS_MASTER_KEY. Values belong in host settings, not the frontend or repository.</td></tr>
+    <tr><td class="label">HR provisioning</td><td>HR_LOGIN_EMAIL, strong HR_LOGIN_PASSWORD, SEED_HR_USER=true and build migrations enabled for one-time provisioning. Remove the seed flag afterward.</td></tr>
+    <tr><td class="label">Synthetic employees</td><td>Only explicitly enabled using ALLOW_PRODUCTION_SEEDS and SEED_EMPLOYEE_COUNT. Remove those flags after a demo seed; do not treat demo records as real HR data.</td></tr>
+  </tbody></table>
+  <h3>Browser Connectivity</h3>
+  <p>The current configured frontend origin is <code>https://employee-portal-frontend-1hdp.onrender.com</code>; the backend origin is <code>https://employeeportal-z31o.onrender.com</code>. Rails CORS allows the frontend origin for /api/*. A new Vercel/preview/custom hostname is not automatically allowed. Changing FRONTEND_URL changes the status-page link, not CORS.</p>
+  <h3>Proposed Release Sequence</h3>
+  <ol><li>Review and commit the intended changes; run CI and record the exact release hash. Review backups before applying schema changes.</li><li>Apply backward-compatible primary migrations, including 20261013000004 for anomaly reviews, before code needs the new tables. Verify migration status in the hosted database.</li><li>Deploy Rails and build/deploy the frontend with the matching API contract and correct API base URL. Verify CORS preflights and HTTPS access.</li><li>Provision the single HR account if absent; seed synthetic employees only for an approved demo. Existing passwords are preserved unless explicit rotation is enabled.</li><li>Smoke-test sign-in, directory, confirmed salary/history, insights, anomaly scans/reviews, expiry/sign-out and public health. Then remove one-time seed/rotation flags.</li><li>Monitor failures and latency; keep a known-good application release and compatible schema. A database rollback is not assumed safe after salary/audit writes.</li></ol>
+  <p class="small muted">/up confirms Rails liveness, not database readiness. Host pricing, plan capabilities, current live state and backup service configuration must be checked separately before release.</p>
+  <footer><span>Do not expose passwords, Rails keys or database URLs through VITE_ settings</span><span>11 / 12</span></footer>
+</section>
+<section class="page">
+  <header><strong>Employee Portal</strong><span>Roadmap, Risks and Open Decisions</span></header>
+  <h2>Next Work and Decisions</h2>
+  <table class="compact"><thead><tr><th>Remaining Feature</th><th>Current State / Design Needed</th></tr></thead><tbody>
+    <tr><td class="label">Country/role fairness</td><td>Partial basic groups; contextual justification is deferred by request. No new context fields are planned without renewed approval.</td></tr>
+    <tr><td class="label">Department dispersion</td><td>Partial ranges and bands; no variance, standard deviation, department IQR ranking or dedicated spread comparison.</td></tr>
+    <tr><td class="label">Organization raise simulation</td><td>Not implemented. Proposed read-only scenarios with incremental annual/monthly cost per currency.</td></tr>
+    <tr><td class="label">Department raise simulation</td><td>Not implemented. Proposed selected-department percentage scenarios without editing employee salaries.</td></tr>
+    <tr><td class="label">Year-over-year expenditure</td><td>Not implemented. Define historical snapshots, joins/leavers and effective-date treatment before calculating.</td></tr>
+    <tr><td class="label">Salary-review schedule</td><td>Not implemented. Needs a distinct review date/policy and upcoming/overdue lifecycle.</td></tr>
+    <tr><td class="label">Upcoming increment budgets</td><td>Not implemented. Needs planned changes and effective dates with currency-specific forecast rules.</td></tr>
+    <tr><td class="label">CSV / Excel export</td><td>Not implemented. Proposed authorized filtered exports, explicit currency columns and formula-injection safeguards.</td></tr>
+  </tbody></table>
+  <h3>Proposed Delivery Order, Not a Committed Schedule</h3>
+  <p><strong>Phase 1:</strong> release hardening, staging acceptance, safe large-value formatting, backup/restore verification and deployment observability. <strong>Phase 2:</strong> choose dispersion or read-only simulations as the next product increment. <strong>Phase 3:</strong> scheduling, forecast inputs, historical reporting and protected exports after their data contracts are agreed.</p>
+  <h3>Risk Register and Open Choices</h3>
+  <ul><li><strong>Concurrent edits:</strong> row locks preserve atomic history, but there is no optimistic version check for an old browser salary form. Add stale-edit detection before multi-user expansion.</li><li><strong>Audit strength:</strong> history lacks the salary-changing actor and immutability is application-level. Decide whether stronger attribution/database controls are required.</li><li><strong>Scale:</strong> scans are synchronous and login limits process-local. Revisit background jobs, query plans and a shared limit store as workload grows.</li><li><strong>Business semantics:</strong> agree active-only defaults, reference-value governance, effective-date scheduling and anomaly thresholds before interpreting reports as payroll or policy.</li></ul>
+  <h3>Source and Companion Documents</h3>
+  <p class="small">Sources: README.md; Backend/docs/p0_contract.md; database schema/migrations; API controllers and domain services; Frontend/src; Playwright configuration; .github/workflows/ci.yml; Render build script. Companion PDFs: <a href="EmployeePortal-Feature-Coverage.pdf">Feature Coverage</a> and <a href="EmployeePortal-Database-Schema.pdf">Database Schema / ERD</a>. Proposed items in this document do not modify the application.</p>
+  <footer><span>Repository-based planning snapshot | 13 October 2026</span><span>12 / 12</span></footer>
+</section>
+</body>
+</html>

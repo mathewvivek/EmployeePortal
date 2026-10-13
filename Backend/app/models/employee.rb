@@ -2,6 +2,7 @@ class Employee < ApplicationRecord
   STATUSES = %w[active inactive].freeze
 
   has_many :salary_changes, dependent: :restrict_with_error, inverse_of: :employee
+  has_many :salary_data_anomalies, dependent: :restrict_with_error
 
   validates :employee_id, :name, :department, :country, :designation, :status,
     :base_salary, :currency, :effective_date, presence: true

@@ -1,0 +1,95 @@
+erDiagram
+    users ||--o{ sessions : "user_id"
+    users ||--o{ salary_data_quality_scans : "requested_by_id"
+    users |o--o{ salary_data_anomalies : "reviewed_by_id"
+    users ||--o{ salary_data_anomaly_reviews : "reviewed_by_id"
+    employees ||--o{ salary_changes : "employee_id"
+    employees ||--o{ salary_data_anomalies : "employee_id"
+    salary_data_quality_scans ||--o{ salary_data_anomalies : "last_seen_scan_id"
+    salary_data_anomalies ||--o{ salary_data_anomaly_reviews : "salary_data_anomaly_id"
+    employees {
+        bigint id PK
+        string employee_id UK
+        string name
+        string department
+        string country
+        string designation
+        string status
+        decimal base_salary
+        string currency
+        date effective_date
+        datetime created_at
+        datetime updated_at
+    }
+    salary_changes {
+        bigint id PK
+        bigint employee_id FK
+        decimal old_base_salary
+        decimal new_base_salary
+        string old_currency
+        string new_currency
+        date old_effective_date
+        date effective_date
+        datetime changed_at
+        datetime created_at
+        datetime updated_at
+    }
+    users {
+        bigint id PK
+        string email UK
+        string name
+        string role
+        string password_digest
+        boolean active
+        datetime created_at
+        datetime updated_at
+    }
+    sessions {
+        bigint id PK
+        bigint user_id FK
+        string token_digest UK
+        datetime expires_at
+        datetime created_at
+        datetime updated_at
+    }
+    salary_data_quality_scans {
+        bigint id PK
+        bigint requested_by_id FK
+        datetime started_at
+        datetime completed_at
+        integer checked_employees
+        integer detected_findings
+        integer new_findings
+        integer affected_employees
+        integer cleared_findings
+        datetime created_at
+        datetime updated_at
+    }
+    salary_data_anomalies {
+        bigint id PK
+        bigint employee_id FK
+        bigint last_seen_scan_id FK
+        string fingerprint UK
+        string rule_code
+        string severity
+        jsonb snapshot
+        jsonb observed
+        jsonb reference
+        boolean active
+        string review_status
+        text review_notes
+        bigint reviewed_by_id FK
+        datetime reviewed_at
+        datetime cleared_at
+        datetime created_at
+        datetime updated_at
+    }
+    salary_data_anomaly_reviews {
+        bigint id PK
+        bigint salary_data_anomaly_id FK
+        bigint reviewed_by_id FK
+        string status
+        text notes
+        datetime created_at
+        datetime updated_at
+    }

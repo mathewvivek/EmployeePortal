@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -53,6 +53,58 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_000003) do
     t.check_constraint "old_base_salary >= 0::numeric AND new_base_salary >= 0::numeric", name: "salary_changes_nonnegative_salaries"
   end
 
+  create_table "salary_data_anomalies", force: :cascade do |t|
+    t.bigint "employee_id", null: false
+    t.bigint "last_seen_scan_id", null: false
+    t.string "fingerprint", null: false
+    t.string "rule_code", null: false
+    t.string "severity", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.jsonb "observed", default: {}, null: false
+    t.jsonb "reference", default: {}, null: false
+    t.boolean "active", default: true, null: false
+    t.string "review_status", default: "pending", null: false
+    t.text "review_notes"
+    t.bigint "reviewed_by_id"
+    t.datetime "reviewed_at"
+    t.datetime "cleared_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active", "review_status", "created_at"], name: "index_salary_anomalies_on_review_queue"
+    t.index ["employee_id"], name: "index_salary_data_anomalies_on_employee_id"
+    t.index ["fingerprint"], name: "index_salary_data_anomalies_on_fingerprint", unique: true
+    t.index ["last_seen_scan_id"], name: "index_salary_data_anomalies_on_last_seen_scan_id"
+    t.index ["reviewed_by_id"], name: "index_salary_data_anomalies_on_reviewed_by_id"
+    t.check_constraint "review_status::text = ANY (ARRAY['pending'::character varying, 'investigating'::character varying, 'confirmed_error'::character varying, 'legitimate'::character varying]::text[])", name: "salary_anomalies_review_status"
+    t.check_constraint "severity::text = ANY (ARRAY['warning'::character varying, 'info'::character varying]::text[])", name: "salary_anomalies_severity"
+  end
+
+  create_table "salary_data_anomaly_reviews", force: :cascade do |t|
+    t.bigint "salary_data_anomaly_id", null: false
+    t.bigint "reviewed_by_id", null: false
+    t.string "status", null: false
+    t.text "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["reviewed_by_id"], name: "index_salary_data_anomaly_reviews_on_reviewed_by_id"
+    t.index ["salary_data_anomaly_id"], name: "index_salary_data_anomaly_reviews_on_salary_data_anomaly_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'investigating'::character varying, 'confirmed_error'::character varying, 'legitimate'::character varying]::text[])", name: "salary_anomaly_reviews_status"
+  end
+
+  create_table "salary_data_quality_scans", force: :cascade do |t|
+    t.bigint "requested_by_id", null: false
+    t.datetime "started_at", null: false
+    t.datetime "completed_at"
+    t.integer "checked_employees", default: 0, null: false
+    t.integer "detected_findings", default: 0, null: false
+    t.integer "new_findings", default: 0, null: false
+    t.integer "affected_employees", default: 0, null: false
+    t.integer "cleared_findings", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["requested_by_id"], name: "index_salary_data_quality_scans_on_requested_by_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "token_digest", null: false
@@ -77,5 +129,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_000003) do
   end
 
   add_foreign_key "salary_changes", "employees"
+  add_foreign_key "salary_data_anomalies", "employees"
+  add_foreign_key "salary_data_anomalies", "salary_data_quality_scans", column: "last_seen_scan_id"
+  add_foreign_key "salary_data_anomalies", "users", column: "reviewed_by_id"
+  add_foreign_key "salary_data_anomaly_reviews", "salary_data_anomalies"
+  add_foreign_key "salary_data_anomaly_reviews", "users", column: "reviewed_by_id"
+  add_foreign_key "salary_data_quality_scans", "users", column: "requested_by_id"
   add_foreign_key "sessions", "users"
 end

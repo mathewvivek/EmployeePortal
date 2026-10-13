@@ -19,8 +19,7 @@ class EmployeeDirectory
   end
 
   def self.call(params:, employees: Employee.all)
-    page = positive_integer(params.fetch(:page, 1), :page)
-    per_page = [ positive_integer(params.fetch(:per_page, 25), :per_page), 100 ].min
+    page, per_page = pagination(params).values_at(:page, :per_page)
     sort = params[:sort].presence
     direction = params.fetch(:direction, "asc")
     raise InvalidParameter, "Unsupported sort field" if sort && sort != "base_salary"
@@ -38,6 +37,11 @@ class EmployeeDirectory
       employees: employees.offset((page - 1) * per_page).limit(per_page),
       meta: { page: page, per_page: per_page, total_count: count, total_pages: (count + per_page - 1) / per_page }
     }
+  end
+
+  def self.pagination(params)
+    { page: positive_integer(params.fetch(:page, 1), :page),
+      per_page: [ positive_integer(params.fetch(:per_page, 25), :per_page), 100 ].min }
   end
 
   def self.positive_integer(value, field)

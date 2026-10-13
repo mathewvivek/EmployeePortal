@@ -48,7 +48,7 @@ export function Modal({ title, children, close, drawer = false }: { title: strin
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose.current();
       if (event.key !== 'Tab') return;
-      const controls = [...(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]') || [])];
+      const controls = [...(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') || [])];
       const first = controls[0];
       const last = controls.at(-1);
       if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) {

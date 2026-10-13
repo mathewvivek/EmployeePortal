@@ -57,13 +57,23 @@ RSpec.describe "HR authentication", type: :request do
     expect(json_response.fetch("errors").first).to include("Too many")
   end
 
-  [ "/api/v1/employees", "/api/v1/compensation_insights", "/api/v1/employees/1/salary",
-    "/api/v1/employees/1/salary_history", "/api/v1/session" ].each do |path|
+  [ "/api/v1/employees", "/api/v1/compensation_insights", "/api/v1/salary_analysis", "/api/v1/employees/1/salary",
+    "/api/v1/employees/1/salary_history", "/api/v1/session", "/api/v1/salary_data_anomalies",
+    "/api/v1/salary_data_anomalies/1" ].each do |path|
     it "requires authentication to read #{path}" do
       get path
       expect(response).to have_http_status(:unauthorized)
       expect(json_response.fetch("errors")).not_to be_empty
     end
+  end
+
+  it "prevents unauthenticated scans and anomaly reviews" do
+    post "/api/v1/salary_data_quality_scans"
+    expect(response).to have_http_status(:unauthorized)
+    expect(SalaryDataQualityScan.count).to eq(0)
+    patch "/api/v1/salary_data_anomalies/1", params: { review: { status: "legitimate", notes: "Not authorized" } }, as: :json
+    expect(response).to have_http_status(:unauthorized)
+    expect(SalaryDataAnomalyReview.count).to eq(0)
   end
 
   it "prevents unauthenticated employee creation and salary changes" do

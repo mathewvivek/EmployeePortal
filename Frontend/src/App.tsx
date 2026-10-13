@@ -1,22 +1,26 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, History, LayoutDashboard, LogOut, Menu, Moon, RefreshCw, Search, Settings2, Sun, UsersRound, Wallet, X } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ClipboardCheck, History, LayoutDashboard, LogOut, Menu, Moon, RefreshCw, Search, Settings2, ShieldAlert, Sun, UsersRound, Wallet, X } from 'lucide-react';
 import { api, currencies, emptyFilters } from './api';
 import type { AuthUser, Employee } from './api';
 import AuthGate from './AuthGate';
 import DirectoryView from './DirectoryView';
 import HistoryView from './HistoryView';
 import InsightsView from './InsightsView';
+import SalaryAnalysisView from './SalaryAnalysisView';
+import DataQualityView from './DataQualityView';
 import SalaryDrawer from './SalaryDrawer';
 import NewEmployeeDrawer from './NewEmployeeDrawer';
 import { Modal, useResource } from './ui';
 
-type View = 'overview' | 'employees' | 'compensation' | 'history';
+type View = 'overview' | 'employees' | 'compensation' | 'history' | 'analysis' | 'quality';
 type Theme = 'dark' | 'light' | 'system';
 const navigation = [
   { key: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
   { key: 'employees' as const, label: 'Employees', icon: UsersRound },
   { key: 'compensation' as const, label: 'Compensation', icon: Wallet },
   { key: 'history' as const, label: 'Salary history', icon: History },
+  { key: 'analysis' as const, label: 'Salary analysis', icon: ShieldAlert },
+  { key: 'quality' as const, label: 'Data quality', icon: ClipboardCheck },
 ];
 
 function readPreference(key: string, fallback: string) {
@@ -89,6 +93,8 @@ function Workspace({ user, logout }: { user: AuthUser; logout: () => Promise<voi
         {view === 'employees' && <DirectoryView query={search} filters={filters} changeFilters={setFilters} clearSearch={() => setQuery('')} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} addEmployee={() => setNewEmployee(true)} />}
         {(view === 'overview' || view === 'compensation') && <InsightsView overview={view === 'overview'} filters={filters} changeFilters={setFilters} options={options.data?.data} revision={revision} defaultCurrency={currency} />}
         {view === 'history' && <HistoryView revision={revision} />}
+        {view === 'analysis' && <SalaryAnalysisView filters={filters} changeFilters={setFilters} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} />}
+        {view === 'quality' && <DataQualityView filters={filters} changeFilters={setFilters} options={options.data?.data} revision={revision} pageSize={pageSize} selectEmployee={setSelected} />}
         <footer className="workspace-footer"><span>Employee Portal</span><span>People operations</span></footer>
       </main>
     </div>
